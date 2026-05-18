@@ -1462,7 +1462,8 @@ async function updateDrawingPassportBooklet() {
     
     // Page 2 Stats
     const points = p.points || 0;
-    const stamps = Math.floor(points / 20);
+    const completedChals = Object.values(p.challenges || {}).filter(v => v === true).length;
+    const stamps = Math.floor(points / 20) + completedChals;
     let rank = 'Trainee';
     if (stamps >= 3 && stamps < 8) rank = '📐 Draftsman';
     else if (stamps >= 8 && stamps < 12) rank = 'Expert';
@@ -1531,7 +1532,8 @@ async function updateSafetyPassportBooklet() {
     
     // Page 2 Stats
     const points = p.points || 0;
-    const stamps = Math.floor(points / 20);
+    const completedChals = Object.values(p.challenges || {}).filter(v => v === true).length;
+    const stamps = Math.floor(points / 20) + completedChals;
     let rank = 'Guardian Trainee';
     if (stamps >= 8 && stamps <= 10) rank = '🥉 Bronze Guardian';
     else if (stamps >= 11 && stamps <= 13) rank = '🥈 Silver Guardian';
@@ -1704,7 +1706,8 @@ function updateShopAssets() {
     if (currentDrawingPassportData) {
         const dp = currentDrawingPassportData;
         const pts = dp.points || 0;
-        const stamps = Math.floor(pts / 20);
+        const completedChals = Object.values(dp.challenges || {}).filter(v => v === true).length;
+        const stamps = Math.floor(pts / 20) + completedChals;
         
         document.getElementById('shopDrawingPoints').innerText = pts;
         document.getElementById('shopDrawingStamps').innerText = stamps;
@@ -1718,7 +1721,8 @@ function updateShopAssets() {
     if (currentSafetyPassportData) {
         const sp = currentSafetyPassportData;
         const pts = sp.points || 0;
-        const stamps = Math.floor(pts / 20);
+        const completedChals = Object.values(sp.challenges || {}).filter(v => v === true).length;
+        const stamps = Math.floor(pts / 20) + completedChals;
         
         document.getElementById('shopSafetyPoints').innerText = pts;
         document.getElementById('shopSafetyStamps').innerText = stamps;
@@ -1795,7 +1799,8 @@ async function executeRedeem(rewardType, rewardName, subjectType, pointsCost, st
             
         } else if (stampsCost > 0) {
             const currentPoints = p.points || 0;
-            const currentStamps = Math.floor(currentPoints / 20);
+            const completedChals = Object.values(p.challenges || {}).filter(v => v === true).length;
+            const currentStamps = Math.floor(currentPoints / 20) + completedChals;
             const earnedChances = Math.floor(currentStamps / 2);
             const usedChances = p.music_chances_used || 0;
             const availableChances = earnedChances - usedChances;

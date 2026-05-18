@@ -875,7 +875,8 @@ window.openReviewModal = (si) => {
 window.adjustPoints = (pi, delta) => {
     const input = document.getElementById(`gradePoints_${pi}`);
     if (input) {
-        let val = parseInt(input.value) || 10;
+        let val = parseInt(input.value);
+        if (isNaN(val)) val = 10;
         val = Math.max(0, Math.min(100, val + delta));
         input.value = val;
     }
@@ -891,7 +892,7 @@ window.renderReviewPosts = () => {
         
         let actionBtnSection = '';
         if (p.isGraded) {
-            const awarded = p.awardedPoints || 10;
+            const awarded = p.awardedPoints !== undefined ? p.awardedPoints : 10;
             actionBtnSection = `
                 <div style="display:inline-flex;align-items:center;gap:12px;">
                     <span style="font-size:0.9rem;color:var(--primary-light);font-weight:600;"><i class="fas fa-star" style="color:#fbbf24"></i> ได้รับ ${awarded} คะแนน</span>
@@ -948,11 +949,13 @@ window.toggleGrade = async (pi, status) => {
     if (status) {
         const input = document.getElementById(`gradePoints_${pi}`);
         if (input) {
-            pointsToChange = parseInt(input.value) || 10;
+            let val = parseInt(input.value);
+            if (isNaN(val)) val = 10;
+            pointsToChange = val;
         }
         post.awardedPoints = pointsToChange;
     } else {
-        pointsToChange = post.awardedPoints || 10;
+        pointsToChange = post.awardedPoints !== undefined ? post.awardedPoints : 10;
         post.awardedPoints = null;
     }
     

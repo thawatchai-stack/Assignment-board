@@ -1205,6 +1205,9 @@ window.closeBoardModal = function() {
 
 window.openSubmitWork = async function(asgnIndex) {
     activeAssignmentIndex = asgnIndex;
+    postFilesBase64 = [];
+    postLargeFileLink = null;
+    
     try {
         const snap = await get(ref(db, `boards/${activeBoardId}`));
         if (!snap.exists()) return;
@@ -1215,6 +1218,21 @@ window.openSubmitWork = async function(asgnIndex) {
         const posts = a.posts || [];
         const studentPost = posts.find(p => p.studentPhone === studentUser.phone);
         
+        const isSubmitted = !!studentPost;
+        const isGraded = studentPost && studentPost.isGraded === true;
+        const allowEdit = studentPost && studentPost.allowEdit === true;
+        const isLocked = isSubmitted && !allowEdit;
+        
+        if (studentPost && studentPost.attachments) {
+            studentPost.attachments.forEach(att => {
+                if (att.startsWith('data:image')) {
+                    postFilesBase64.push(att);
+                } else {
+                    postLargeFileLink = att;
+                }
+            });
+        }
+        
         let existingHtml = '';
         if (studentPost) {
             let fileHtml = '';
@@ -1222,18 +1240,34 @@ window.openSubmitWork = async function(asgnIndex) {
                 fileHtml += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">';
                 studentPost.attachments.forEach(att => {
                     if (att.startsWith('data:image')) {
-                        fileHtml += `<img src="${att}" style="max-width:100%;max-height:100px;border-radius:6px;">`;
+                        fileHtml += `<img src="${att}" style="max-width:100%;max-height:100px;border-radius:6px;border:1px solid var(--border);">`;
                     } else {
                         fileHtml += `<a href="${att}" target="_blank" class="btn-link-action" style="font-size:0.75rem;color:#818cf8;display:block;"><i class="fas fa-external-link-alt"></i> เปิดไฟล์แนบใหญ่</a>`;
                     }
                 });
                 fileHtml += '</div>';
             }
+            
+            let editActionHtml = '';
+            if (isLocked) {
+                editActionHtml = `
+                <div style="background:rgba(245,158,11,0.06); border:1px solid rgba(245,158,11,0.2); border-radius:8px; padding:12px; text-align:center; color:#fbbf24; font-size:0.8rem; font-weight:500; width:100%; box-sizing:border-box; margin-top:12px; line-height:1.4;">
+                    <i class="fas fa-lock" style="margin-right:6px;"></i> <strong>งานส่งถูกล็อกแล้ว ${isGraded ? '(ตรวจคะแนนแล้ว)' : '(ส่งเข้าระบบแล้ว)'}</strong><br>
+                    <span style="font-size:0.7rem; opacity:0.85;">ไม่สามารถแก้ไขเพิ่มเติมได้ หากจำเป็นต้องแก้ไข กรุณาแจ้งคุณครูเพื่อขอปลดล็อกระบบตรวจงาน</span>
+                </div>`;
+            } else {
+                editActionHtml = `
+                <button class="btn btn-outline btn-sm" onclick="showSubmissionEditForm()" style="margin-top:12px; width:100%; border-color:#fbbf24; color:#fbbf24; background:rgba(245,158,11,0.06); display:flex; align-items:center; justify-content:center; gap:8px; font-weight:600;">
+                    <i class="fas fa-pencil-alt"></i> ✏️ คลิกดินสอเพื่อแก้ไขใบงานชิ้นนี้
+                </button>`;
+            }
+            
             existingHtml = `<div style="background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px;">
                 <div style="font-size:0.85rem;color:var(--primary);font-weight:600">งานที่ส่งแล้วของคุณ:</div>
                 <div style="font-size:0.85rem;margin-top:4px"><strong>หัวข้อ:</strong> ${studentPost.title}</div>
                 <div style="font-size:0.8rem;color:var(--text2)"><strong>ข้อความ:</strong> ${studentPost.desc || '-'}</div>
                 ${fileHtml}
+                ${editActionHtml}
             </div>`;
         }
         
@@ -1244,32 +1278,56 @@ window.openSubmitWork = async function(asgnIndex) {
             
             ${existingHtml}
             
-            <div class="submit-work-card">
-                <div style="font-weight:600;font-size:0.9rem;margin-bottom:12px;color:var(--primary)"><i class="fas fa-paper-plane"></i> ส่งคำตอบของคุณ</div>
+            <div class="submit-work-card" id="submitWorkFormCard" style="${isSubmitted ? 'display:none; margin-top:16px;' : 'margin-top:16px;'}">
+                <div style="font-weight:600;font-size:0.9rem;margin-bottom:12px;color:var(--primary)">
+                    <i class="fas ${isLocked ? 'fa-lock' : 'fa-paper-plane'}"></i> ${isLocked ? 'ข้อมูลการส่งงานถูกล็อก' : 'แก้ไข / ส่งคำตอบของคุณ'}
+                </div>
                 
                 <div class="form-group">
                     <label>หัวข้องานที่ส่ง</label>
-                    <input type="text" class="input" id="postTitle" placeholder="เช่น ส่งใบงานสัปดาห์ที่ 1" value="${studentPost ? studentPost.title : ''}">
+                    <input type="text" class="input" id="postTitle" placeholder="เช่น ส่งใบงานสัปดาห์ที่ 1" value="${studentPost ? studentPost.title : ''}" ${isLocked ? 'disabled style="background:rgba(255,255,255,0.02);color:var(--text2);cursor:not-allowed;"' : ''}>
                 </div>
                 <div class="form-group">
                     <label>คำอธิบายเพิ่มเติม (คำตอบ/บันทึก)</label>
-                    <textarea class="input" id="postDesc" style="min-height:70px;resize:none" placeholder="กรอกคำอธิบายหรือคำตอบ...">${studentPost ? studentPost.desc : ''}</textarea>
+                    <textarea class="input" id="postDesc" style="min-height:70px;resize:none;${isLocked ? 'background:rgba(255,255,255,0.02);color:var(--text2);cursor:not-allowed;' : ''}" placeholder="กรอกคำอธิบายหรือคำตอบ..." ${isLocked ? 'disabled' : ''}>${studentPost ? studentPost.desc : ''}</textarea>
                 </div>
                 
-                <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
-                    <button class="btn-large-file" onclick="triggerPostFile()"><i class="fas fa-camera"></i> แนบรูปถ่ายส่งงาน</button>
-                    <button class="btn-large-file" onclick="promptLargeFile()"><i class="fas fa-link"></i> แนบลิงก์ Google Drive</button>
-                    <input type="file" id="postFile" accept="image/*" style="display:none" onchange="onPostFileSelected(this)" multiple>
-                </div>
-                
-                <div id="largeFileLinkDisplay" style="font-size:0.75rem;color:#818cf8;margin-bottom:10px;word-break:break-all"></div>
-                <div id="postImgPreviewContainer" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;"></div>
-                
-                <button class="btn btn-primary" style="margin-top:10px" onclick="submitPost()">🚀 ยืนยันการส่งงาน</button>
+                ${isLocked ? `
+                    <div style="background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.2); border-radius:8px; padding:14px; text-align:center; color:#fbbf24; font-size:0.85rem; font-weight:500; width: 100%; box-sizing:border-box; line-height:1.4;">
+                        <i class="fas fa-lock" style="margin-right:6px; font-size:1rem;"></i> <strong>${isGraded ? 'งานนี้ได้รับการตรวจแล้ว ไม่อนุญาตให้แก้ไข' : 'ส่งงานเรียบร้อยแล้ว ไม่อนุญาตให้แก้ไข'}</strong> <br>
+                        <span style="font-size:0.75rem; opacity:0.8; display:block; margin-top:4px;">หากต้องการแก้ไขเพิ่มเติม กรุณาแจ้งคุณครูให้ยกเลิกการตรวจงานก่อนเพื่อปลดล็อกระบบ</span>
+                    </div>
+                ` : `
+                    <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+                        <button class="btn-large-file" onclick="triggerPostCameraFile()"><i class="fas fa-camera"></i> ถ่ายรูปจากกล้อง</button>
+                        <button class="btn-large-file" onclick="triggerPostFile()"><i class="fas fa-image"></i> เลือกรูปจากคลังภาพ</button>
+                        <button class="btn-large-file" onclick="promptLargeFile()"><i class="fas fa-link"></i> แนบลิงก์ Google Drive</button>
+                        <input type="file" id="postFile" accept="image/*" style="display:none" onchange="onPostFileSelected(this)" multiple>
+                        <input type="file" id="postCameraFile" accept="image/*" capture="environment" style="display:none" onchange="onPostFileSelected(this)">
+                    </div>
+                    
+                    <div id="largeFileLinkDisplay" style="font-size:0.75rem;color:#818cf8;margin-bottom:10px;word-break:break-all"></div>
+                    <div id="postImgPreviewContainer" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;"></div>
+                    
+                    <button class="btn btn-primary" id="btnSubmitPost" style="margin-top:10px" onclick="submitPost()">🚀 ยืนยันการส่งงาน</button>
+                `}
             </div>
         `;
+        
+        if (!isLocked) {
+            renderPostImgPreview();
+        }
     } catch(e) {
         showToast('เกิดข้อผิดพลาด', false);
+    }
+};
+
+window.showSubmissionEditForm = function() {
+    const card = document.getElementById('submitWorkFormCard');
+    if (card) {
+        card.style.display = 'block';
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        renderPostImgPreview();
     }
 };
 
@@ -1277,16 +1335,90 @@ let postFilesBase64 = [];
 let postLargeFileLink = null;
 
 window.triggerPostFile = function() {
-    document.getElementById('postFile').click();
+    const el = document.getElementById('postFile');
+    if (el) el.click();
+};
+
+window.triggerPostCameraFile = function() {
+    const el = document.getElementById('postCameraFile');
+    if (el) el.click();
 };
 
 window.promptLargeFile = function() {
     const link = prompt("วาง URL ลิงก์ไฟล์งานขนาดใหญ่ของคุณ (เช่น Google Drive, YouTube, etc.)");
     if (link) {
         postLargeFileLink = link;
-        document.getElementById('largeFileLinkDisplay').innerHTML = `<i class="fas fa-link"></i> <strong>ไฟล์แนบใหญ่:</strong> ${link}`;
-        document.getElementById('postImgPreviewContainer').innerHTML = '';
-        postFilesBase64 = [];
+        renderPostImgPreview();
+    }
+};
+
+window.removeLargeFileLink = function() {
+    postLargeFileLink = null;
+    renderPostImgPreview();
+};
+
+window.renderPostImgPreview = function() {
+    const container = document.getElementById('postImgPreviewContainer');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    postFilesBase64.forEach((src, idx) => {
+        const wrapper = document.createElement('div');
+        wrapper.style.position = 'relative';
+        wrapper.style.width = '80px';
+        wrapper.style.height = '80px';
+        wrapper.style.marginRight = '8px';
+        wrapper.style.marginBottom = '8px';
+        
+        const imgEl = document.createElement('img');
+        imgEl.src = src;
+        imgEl.style.width = '100%';
+        imgEl.style.height = '100%';
+        imgEl.style.borderRadius = '6px';
+        imgEl.style.objectFit = 'cover';
+        imgEl.style.border = '1px solid var(--border)';
+        wrapper.appendChild(imgEl);
+        
+        // Red close button
+        const delBtn = document.createElement('button');
+        delBtn.innerHTML = '<i class="fas fa-times"></i>';
+        delBtn.style.position = 'absolute';
+        delBtn.style.top = '-6px';
+        delBtn.style.right = '-6px';
+        delBtn.style.width = '20px';
+        delBtn.style.height = '20px';
+        delBtn.style.borderRadius = '50%';
+        delBtn.style.background = '#dc2626';
+        delBtn.style.color = '#fff';
+        delBtn.style.border = 'none';
+        delBtn.style.fontSize = '10px';
+        delBtn.style.display = 'flex';
+        delBtn.style.alignItems = 'center';
+        delBtn.style.justifyContent = 'center';
+        delBtn.style.cursor = 'pointer';
+        delBtn.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
+        
+        delBtn.onclick = function(e) {
+            e.preventDefault();
+            postFilesBase64.splice(idx, 1);
+            renderPostImgPreview();
+        };
+        
+        wrapper.appendChild(delBtn);
+        container.appendChild(wrapper);
+    });
+    
+    const display = document.getElementById('largeFileLinkDisplay');
+    if (display) {
+        if (postLargeFileLink) {
+            display.innerHTML = `
+                <div style="background:rgba(129,140,248,0.06); border:1px solid rgba(129,140,248,0.2); border-radius:6px; padding:6px 12px; display:inline-flex; align-items:center; gap:8px; margin-bottom:8px;">
+                    <i class="fas fa-link"></i> <span style="font-weight:600;">ไฟล์แนบใหญ่:</span> ${postLargeFileLink}
+                    <button onclick="removeLargeFileLink()" style="background:transparent; border:none; color:#f87171; cursor:pointer; font-size:12px; padding:0 4px;"><i class="fas fa-trash-alt"></i></button>
+                </div>`;
+        } else {
+            display.innerHTML = '';
+        }
     }
 };
 
@@ -1294,20 +1426,34 @@ window.onPostFileSelected = function(input) {
     const files = input.files;
     if (!files || files.length === 0) return;
     
-    postLargeFileLink = null;
-    document.getElementById('largeFileLinkDisplay').innerText = '';
-    
     const previewContainer = document.getElementById('postImgPreviewContainer');
-    postFilesBase64 = [];
-    previewContainer.innerHTML = '';
     
-    Array.from(files).forEach(file => {
+    // Add temporary loader spinner
+    let feedback = document.getElementById('compressingFeedback');
+    if (!feedback) {
+        feedback = document.createElement('div');
+        feedback.id = 'compressingFeedback';
+        feedback.style.cssText = 'color:#fbbf24; font-size:0.75rem; font-weight:500; display:flex; align-items:center; gap:6px; margin: 8px 0; width:100%;';
+        feedback.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ⏳ กำลังย่อขนาดภาพ กรุณารอสักครู่...`;
+        if (previewContainer) previewContainer.appendChild(feedback);
+    }
+    
+    const btn = document.getElementById('btnSubmitPost');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังเตรียมรูปภาพ...';
+    }
+    
+    const fileArray = Array.from(files);
+    let processedCount = 0;
+    
+    fileArray.forEach(file => {
         const reader = new FileReader();
         reader.onload = function(e) {
             const img = new Image();
             img.onload = function() {
-                // Compress image to Base64 to save storage space
-                const maxW = 480;
+                // High clarity compression (640 max width)
+                const maxW = 640;
                 const scale = Math.min(maxW / img.width, 1);
                 const canvas = document.createElement('canvas');
                 canvas.width = img.width * scale;
@@ -1315,18 +1461,35 @@ window.onPostFileSelected = function(input) {
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                 
-                const compressed = canvas.toDataURL('image/jpeg', 0.6);
+                const compressed = canvas.toDataURL('image/jpeg', 0.65);
                 postFilesBase64.push(compressed);
                 
-                const imgEl = document.createElement('img');
-                imgEl.src = compressed;
-                imgEl.className = 'img-compress-preview';
-                imgEl.style.display = 'block';
-                imgEl.style.maxWidth = '100px';
-                imgEl.style.maxHeight = '100px';
-                imgEl.style.borderRadius = '6px';
-                imgEl.style.objectFit = 'cover';
-                previewContainer.appendChild(imgEl);
+                processedCount++;
+                if (processedCount === fileArray.length) {
+                    const fb = document.getElementById('compressingFeedback');
+                    if (fb) fb.remove();
+                    
+                    renderPostImgPreview();
+                    
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '🚀 ยืนยันการส่งงาน';
+                    }
+                }
+            };
+            img.onerror = function() {
+                processedCount++;
+                if (processedCount === fileArray.length) {
+                    const fb = document.getElementById('compressingFeedback');
+                    if (fb) fb.remove();
+                    
+                    renderPostImgPreview();
+                    
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '🚀 ยืนยันการส่งงาน';
+                    }
+                }
             };
             img.src = e.target.result;
         };
@@ -1336,6 +1499,9 @@ window.onPostFileSelected = function(input) {
 
 window.submitPost = async function() {
     if (!studentUser) return;
+    const btn = document.getElementById('btnSubmitPost');
+    if (btn && btn.disabled) return; // Prevent double submits
+    
     const title = document.getElementById('postTitle').value.trim();
     const desc = document.getElementById('postDesc').value.trim();
     
@@ -1344,26 +1510,46 @@ window.submitPost = async function() {
         return;
     }
     
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังส่งงาน...';
+    }
+    
     try {
         const snap = await get(ref(db, `boards/${activeBoardId}`));
-        if (!snap.exists()) return;
+        if (!snap.exists()) {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '🚀 ยืนยันการส่งงาน';
+            }
+            return;
+        }
         const b = snap.val();
         
         let assignments = b.classrooms[activeClassroomIndex].assignments;
         let posts = assignments[activeAssignmentIndex].posts || [];
         
-        // Remove previous post by this student if exists (to update it)
         const idx = posts.findIndex(p => p.studentPhone === studentUser.phone);
         let isGradedStatus = false;
+        
         if (idx !== -1) {
-            isGradedStatus = posts[idx].isGraded; // preserve graded status
+            const existingPost = posts[idx];
+            // Security verification: check if locked
+            if (existingPost.isGraded && existingPost.allowEdit !== true) {
+                showToast('งานชิ้นนี้ถูกส่งแล้วและไม่อนุญาตให้แก้ไขในขณะนี้ครับ', false);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '🚀 ยืนยันการส่งงาน';
+                }
+                return;
+            }
+            isGradedStatus = existingPost.isGraded;
             posts.splice(idx, 1);
         }
         
-        // Prepare attachment
         let attachments = [];
         if (postFilesBase64.length > 0) attachments.push(...postFilesBase64);
-        else if (postLargeFileLink) attachments.push(postLargeFileLink);
+        if (postLargeFileLink) attachments.push(postLargeFileLink);
         
         const payload = {
             title: title,
@@ -1372,6 +1558,7 @@ window.submitPost = async function() {
             studentPhone: studentUser.phone,
             attachments: attachments,
             isGraded: isGradedStatus,
+            allowEdit: false, // Strict locking upon submission
             ts: Date.now()
         };
         
@@ -1384,10 +1571,13 @@ window.submitPost = async function() {
         postFilesBase64 = [];
         postLargeFileLink = null;
         
-        // Close modal or return
         closeBoardModal();
     } catch(e) {
         showToast('เกิดข้อผิดพลาดในการส่งงาน: ' + e.message, false);
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '🚀 ยืนยันการส่งงาน';
+        }
     }
 };
 

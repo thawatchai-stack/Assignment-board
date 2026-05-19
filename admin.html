@@ -133,6 +133,9 @@ body{font-family:'IBM Plex Sans Thai','Prompt',sans-serif;background:#0a0f1e;col
                 <i class="fas fa-store"></i> อนุมัติการแลกของรางวัล
                 <span id="globalRedeemPendingBadge" class="sidebar-badge" style="display:none;background:#ef4444;color:#fff;">0</span>
             </div>
+            <div class="nav-item" onclick="switchView('tools')" id="nav-tools">
+                <i class="fas fa-toolbox"></i> เครื่องมือล้างคะแนนซ้ำ
+            </div>
             <div class="nav-item" onclick="switchView('admins')" id="nav-admins">
                 <i class="fas fa-users-cog"></i> จัดการผู้ดูแลระบบ
             </div>
@@ -323,6 +326,28 @@ body{font-family:'IBM Plex Sans Thai','Prompt',sans-serif;background:#0a0f1e;col
                         </div>
                     </div>
 
+            </div>
+
+            <div class="view-section" id="view-tools">
+                <div style="background:var(--glass); border:1px solid rgba(255,255,255,0.08); border-radius:var(--radius); padding:30px; backdrop-filter:blur(20px);">
+                    <h3 style="margin-bottom:12px; font-size:1.3rem; color:#fff; display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-shield-halved" style="color:var(--primary-light)"></i> ระบบตรวจสอบและล้างคะแนนซ้ำซ้อน
+                    </h3>
+                    <p style="color:var(--text2); font-size:0.9rem; margin-bottom:24px;">ระบบจะสแกนพาสปอร์ตนักเรียนเพื่อหาแต้มสะสมที่เกิดจากการบันทึกซ้ำซ้อนจากข้อผิดพลาดในระบบ และช่วยให้คุณครูสามารถดึงคะแนนคืนได้โดยอัตโนมัติ</p>
+                    
+                    <div style="display:flex; gap:16px; margin-bottom:20px; align-items:flex-end; flex-wrap:wrap;">
+                        <div class="form-group" style="margin:0; min-width:200px;">
+                            <label style="display:block; margin-bottom:8px; color:var(--text2); font-size:0.85rem;">เลือกห้องเรียนเพื่อตรวจสอบ</label>
+                            <select class="input" id="toolClassroomSelect" style="padding:8px 16px;">
+                                <option value="all">-- ตรวจสอบทุกห้องเรียน --</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" onclick="scanDuplicateScores()" style="width:auto; padding:10px 20px; height:42px; display:flex; align-items:center; gap:8px;"><i class="fas fa-search"></i> เริ่มสแกนคะแนนซ้ำ</button>
+                    </div>
+
+                    <div id="scanResultsArea" style="margin-top:20px;">
+                        <!-- Results will be rendered here -->
+                    </div>
                 </div>
             </div>
         </div>
@@ -667,6 +692,10 @@ window.switchView = (view) => {
         updateTeacherHistoryUI();
     } else if(view === 'board-editor'){
         document.getElementById('headerActions').innerHTML = `<button class="btn btn-glass btn-sm" onclick="switchView('boards')"><i class="fas fa-arrow-left"></i> กลับ</button>`;
+    } else if(view === 'tools'){
+        document.getElementById('pageTitleText').innerText = 'ระบบสแกนและล้างแต้มซ้ำ';
+        document.getElementById('headerActions').innerHTML = '';
+        loadToolsClassrooms();
     }
     if(window.innerWidth <= 768) document.getElementById('sidebar').classList.add('collapsed');
 };
@@ -945,6 +974,9 @@ window.renderReviewPosts = () => {
 window.toggleGrade = async (pi, status) => {
     const post = activeEditorBoardData.classrooms[activeClassroomIndex].assignments[activeReviewAssignmentIndex].posts[pi];
     
+    // Double grading prevention guard
+    if (post.isGraded === status) return;
+    
     let pointsToChange = 10;
     if (status) {
         const input = document.getElementById(`gradePoints_${pi}`);
@@ -954,9 +986,11 @@ window.toggleGrade = async (pi, status) => {
             pointsToChange = val;
         }
         post.awardedPoints = pointsToChange;
+        post.allowEdit = false; // Disallow editing when graded
     } else {
         pointsToChange = post.awardedPoints !== undefined ? post.awardedPoints : 10;
         post.awardedPoints = null;
+        post.allowEdit = true; // Unlock editing when grading is canceled
     }
     
     post.isGraded = status;
@@ -983,7 +1017,8 @@ window.toggleGrade = async (pi, status) => {
                         type: 'plus',
                         amount: pointsToChange,
                         reason: `ตรวจงาน: บอร์ด [${activeEditorBoardData.name}] | งาน: [${activeEditorBoardData.classrooms[activeClassroomIndex].assignments[activeReviewAssignmentIndex].name}]`,
-                        date: new Date().toLocaleDateString('th-TH') + ' ' + new Date().toLocaleTimeString('th-TH')
+                        date: new Date().toLocaleDateString('th-TH') + ' ' + new Date().toLocaleTimeString('th-TH'),
+                        timestamp: Date.now()
                     });
                     if (activeAsgn.questId) {
                         challenges[activeAsgn.questId] = true;
@@ -994,7 +1029,8 @@ window.toggleGrade = async (pi, status) => {
                         type: 'minus',
                         amount: pointsToChange,
                         reason: `ยกเลิกตรวจ: บอร์ด [${activeEditorBoardData.name}] | งาน: [${activeEditorBoardData.classrooms[activeClassroomIndex].assignments[activeReviewAssignmentIndex].name}]`,
-                        date: new Date().toLocaleDateString('th-TH') + ' ' + new Date().toLocaleTimeString('th-TH')
+                        date: new Date().toLocaleDateString('th-TH') + ' ' + new Date().toLocaleTimeString('th-TH'),
+                        timestamp: Date.now()
                     });
                     if (activeAsgn.questId) {
                         challenges[activeAsgn.questId] = false;
@@ -1011,12 +1047,28 @@ window.toggleGrade = async (pi, status) => {
         }
     }
     
-    saveEditor(); renderReviewPosts(); renderEditor();
+    await saveEditor(); renderReviewPosts(); renderEditor();
 };
 
 window.delPost = (pi) => {
-    activeEditorBoardData.classrooms[activeClassroomIndex].assignments[activeReviewAssignmentIndex].posts.splice(pi,1);
-    saveEditor(); renderReviewPosts(); renderEditor();
+    const post = activeEditorBoardData.classrooms[activeClassroomIndex].assignments[activeReviewAssignmentIndex].posts[pi];
+    const text = post.isGraded ? "งานชิ้นนี้ได้รับการตรวจคะแนนแล้ว การลบจะทำการหักคืนคะแนนสะสมและล้างประวัติจากพาสปอร์ตนักเรียนโดยอัตโนมัติ ยืนยันที่จะลบ?" : "คุณแน่ใจใช่หรือไม่ว่าต้องการลบงานชิ้นนี้?";
+    
+    askConfirm("ยืนยันการลบงานส่ง", text, async () => {
+        try {
+            if (post.isGraded) {
+                await toggleGrade(pi, false);
+            }
+            const posts = activeEditorBoardData.classrooms[activeClassroomIndex].assignments[activeReviewAssignmentIndex].posts;
+            posts.splice(pi, 1);
+            await saveEditor(); 
+            renderReviewPosts(); 
+            renderEditor();
+            showToast("🗑️ ลบงานส่งและดึงคะแนนคืนเรียบร้อยครับ!");
+        } catch(e) {
+            showToast("เกิดข้อผิดพลาดในการลบ: " + e.message, "fas fa-times-circle");
+        }
+    });
 };
 
 let reviewBoardsData = {}, reviewCurrentBoardId = null, reviewClassroomIndex = 0;
@@ -1734,6 +1786,330 @@ window.clearTeacherHistory = function() {
         } catch(e) {
             showToast("เกิดข้อผิดพลาดในการล้างประวัติ: " + e.message, "fas fa-times-circle");
         }
+    });
+};
+
+// ────────────────────────────────────────────────────────────────
+// SCORE CLEANUP & REPAIR UTILITY LOGIC
+// ────────────────────────────────────────────────────────────────
+
+window.loadToolsClassrooms = async () => {
+    const select = document.getElementById('toolClassroomSelect');
+    if (!select) return;
+    select.innerHTML = '<option value="all">-- กำลังโหลดห้องเรียน... --</option>';
+    try {
+        const snap = await get(ref(db, 'users'));
+        if (snap.exists()) {
+            const users = snap.val();
+            const rooms = new Set();
+            Object.values(users).forEach(u => {
+                if (u.classroom) rooms.add(u.classroom.trim());
+            });
+            let opts = '<option value="all">-- ตรวจสอบทุกห้องเรียน --</option>';
+            Array.from(rooms).sort().forEach(r => {
+                opts += `<option value="${r}">${r}</option>`;
+            });
+            select.innerHTML = opts;
+        } else {
+            select.innerHTML = '<option value="all">-- ไม่พบข้อมูลนักเรียน --</option>';
+        }
+    } catch (e) {
+        select.innerHTML = '<option value="all">-- เกิดข้อผิดพลาดในการโหลดห้องเรียน --</option>';
+    }
+};
+
+window.scanDuplicateScores = async () => {
+    const roomFilter = document.getElementById('toolClassroomSelect').value;
+    const resultsDiv = document.getElementById('scanResultsArea');
+    if (!resultsDiv) return;
+    
+    resultsDiv.innerHTML = `<div style="text-align:center; padding:30px; color:var(--primary-light);"><i class="fas fa-spinner fa-spin" style="font-size:2rem; margin-bottom:12px;"></i><br>กำลังตรวจสอบประวัติและสแกนแต้มซ้ำซ้อน...</div>`;
+    
+    try {
+        const usersSnap = await get(ref(db, 'users'));
+        const drawingSnap = await get(ref(db, 'passports'));
+        const safetySnap = await get(ref(db, 'safety_passports'));
+        
+        if (!usersSnap.exists()) {
+            resultsDiv.innerHTML = '<div style="text-align:center; color:var(--text2); padding:20px;">ไม่พบข้อมูลนักเรียนในระบบ</div>';
+            return;
+        }
+        
+        const users = usersSnap.val();
+        const drawing = drawingSnap.exists() ? drawingSnap.val() : {};
+        const safety = safetySnap.exists() ? safetySnap.val() : {};
+        
+        let targetUsers = Object.values(users);
+        if (roomFilter !== 'all') {
+            targetUsers = targetUsers.filter(u => u.classroom && u.classroom.trim() === roomFilter.trim());
+        }
+        
+        let duplicateFoundList = [];
+        
+        targetUsers.forEach(u => {
+            const phone = u.phone;
+            
+            // Check drawing passport
+            if (drawing[phone]) {
+                const dp = drawing[phone];
+                const history = dp.history || [];
+                const reasonCounts = {};
+                
+                history.forEach((h, idx) => {
+                    if (h && h.reason) {
+                        if (!reasonCounts[h.reason]) reasonCounts[h.reason] = [];
+                        reasonCounts[h.reason].push(idx);
+                    }
+                });
+                
+                Object.keys(reasonCounts).forEach(reason => {
+                    const indices = reasonCounts[reason];
+                    if (indices.length > 1) {
+                        let excessPoints = 0;
+                        for (let i = 1; i < indices.length; i++) {
+                            const item = history[indices[i]];
+                            excessPoints += (item.amount !== undefined ? item.amount : 10);
+                        }
+                        
+                        duplicateFoundList.push({
+                            studentName: u.name,
+                            studentPhone: phone,
+                            classroom: u.classroom,
+                            subjectType: 'drawing',
+                            subjectName: 'เขียนแบบฯ',
+                            reason: reason,
+                            count: indices.length,
+                            excessPoints: excessPoints,
+                            indices: indices
+                        });
+                    }
+                });
+            }
+            
+            // Check safety passport
+            if (safety[phone]) {
+                const sp = safety[phone];
+                const history = sp.history || [];
+                const reasonCounts = {};
+                
+                history.forEach((h, idx) => {
+                    if (h && h.reason) {
+                        if (!reasonCounts[h.reason]) reasonCounts[h.reason] = [];
+                        reasonCounts[h.reason].push(idx);
+                    }
+                });
+                
+                Object.keys(reasonCounts).forEach(reason => {
+                    const indices = reasonCounts[reason];
+                    if (indices.length > 1) {
+                        let excessPoints = 0;
+                        for (let i = 1; i < indices.length; i++) {
+                            const item = history[indices[i]];
+                            excessPoints += (item.amount !== undefined ? item.amount : 10);
+                        }
+                        
+                        duplicateFoundList.push({
+                            studentName: u.name,
+                            studentPhone: phone,
+                            classroom: u.classroom,
+                            subjectType: 'safety',
+                            subjectName: 'ความปลอดภัยฯ',
+                            reason: reason,
+                            count: indices.length,
+                            excessPoints: excessPoints,
+                            indices: indices
+                        });
+                    }
+                });
+            }
+        });
+        
+        if (duplicateFoundList.length === 0) {
+            resultsDiv.innerHTML = `
+                <div style="background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.2); border-radius:12px; padding:24px; text-align:center; color:#34d399; font-weight:500;">
+                    <i class="fas fa-check-circle" style="font-size:2rem; margin-bottom:10px;"></i><br>
+                    🎉 ยินดีด้วยครับ! ไม่พบข้อมูลคะแนนซ้ำซ้อนในห้องเรียนที่เลือก
+                </div>`;
+            return;
+        }
+        
+        let html = `
+            <div style="background:rgba(245,158,11,0.06); border:1px solid rgba(245,158,11,0.2); border-radius:12px; padding:16px; margin-bottom:20px; color:#fbbf24; font-size:0.9rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                <span>⚠️ ตรวจพบข้อมูลบันทึกซ้ำซ้อนทั้งหมด <strong>${duplicateFoundList.length} รายการ</strong></span>
+                <button class="btn btn-danger btn-sm" onclick="fixAllDuplicates()" style="width:auto; background:#dc2626; border-color:#ef4444;"><i class="fas fa-magic"></i> ดึงคืนคะแนนทั้งหมดทันที</button>
+            </div>
+            
+            <div style="overflow-x:auto;">
+                <table class="admin-table" style="font-size:0.85rem; width:100%;">
+                    <thead>
+                        <tr>
+                            <th>ชื่อนักเรียน / ห้อง</th>
+                            <th>วิชา</th>
+                            <th>รายละเอียดใบงาน (บันทึกซ้ำ)</th>
+                            <th style="text-align:center;">จำนวนครั้ง</th>
+                            <th style="text-align:center; color:#f87171;">คะแนนที่เกิน</th>
+                            <th style="text-align:right;">จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        duplicateFoundList.forEach((dup, i) => {
+            html += `
+                <tr>
+                    <td>
+                        <strong style="color:#fff;">${dup.studentName}</strong>
+                        <div style="font-size:0.75rem; color:var(--text2);">ห้อง: ${dup.classroom} | โทร: ${dup.studentPhone}</div>
+                    </td>
+                    <td>
+                        <span class="subject-badge sub-${dup.subjectType}" style="font-size:0.7rem;">${dup.subjectName}</span>
+                    </td>
+                    <td style="color:#fff; word-break:break-all;">
+                        ${dup.reason}
+                    </td>
+                    <td style="text-align:center; font-weight:600; color:#fbbf24;">
+                        ${dup.count} ครั้ง
+                    </td>
+                    <td style="text-align:center; font-weight:700; color:#f87171;">
+                        +${dup.excessPoints} แต้ม
+                    </td>
+                    <td style="text-align:right;">
+                        <button class="btn btn-primary btn-sm" onclick="fixSingleDuplicate(${i})" style="width:auto; padding:6px 12px; font-size:0.8rem; background:rgba(99,102,241,0.2); border:1px solid rgba(99,102,241,0.3); color:#818cf8;"><i class="fas fa-undo"></i> ดึงแต้มคืน</button>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        window.currentDuplicateScanData = duplicateFoundList;
+        resultsDiv.innerHTML = html;
+        
+    } catch (e) {
+        resultsDiv.innerHTML = `<div style="color:#f87171; padding:20px; text-align:center;">เกิดข้อผิดพลาดในการสแกนข้อมูล: ${e.message}</div>`;
+    }
+};
+
+window.fixSingleDuplicate = async (index) => {
+    if (!window.currentDuplicateScanData || !window.currentDuplicateScanData[index]) return;
+    const dup = window.currentDuplicateScanData[index];
+    
+    askConfirm("ยืนยันการดึงคะแนนคืน", `ระบบจะหักคะแนนสะสมที่เกินมา ${dup.excessPoints} แต้ม และล้างบันทึกประวัติซ้ำของ "${dup.studentName}" ในวิชา ${dup.subjectName} ยืนยันการดำเนินการ?`, async () => {
+        try {
+            const refPath = dup.subjectType === 'drawing' ? `passports/${dup.studentPhone}` : `safety_passports/${dup.studentPhone}`;
+            const snap = await get(ref(db, refPath));
+            if (!snap.exists()) {
+                showToast("ไม่พบพาสปอร์ตของนักเรียนรายนี้", "fas fa-times-circle");
+                return;
+            }
+            
+            const p = snap.val();
+            let points = p.points || 0;
+            let history = p.history || [];
+            
+            points = Math.max(0, points - dup.excessPoints);
+            
+            const cleanedHistory = [];
+            const seenReasons = new Set();
+            
+            history.forEach(item => {
+                if (item && item.reason) {
+                    if (item.reason === dup.reason) {
+                        if (!seenReasons.has(dup.reason)) {
+                            cleanedHistory.push(item);
+                            seenReasons.add(dup.reason);
+                        }
+                    } else {
+                        cleanedHistory.push(item);
+                    }
+                } else {
+                    cleanedHistory.push(item);
+                }
+            });
+            
+            cleanedHistory.push({
+                type: 'minus',
+                amount: dup.excessPoints,
+                reason: `🧹 ล้างคะแนนบันทึกซ้ำซ้อนโดยระบบผู้ดูแลระบบ (ดึงแต้มคืน ${dup.excessPoints} แต้ม)`,
+                date: new Date().toLocaleDateString('th-TH') + ' ' + new Date().toLocaleTimeString('th-TH'),
+                timestamp: Date.now()
+            });
+            
+            await update(ref(db, refPath), {
+                points: points,
+                history: cleanedHistory
+            });
+            
+            showToast(`🧹 ล้างแต้มซ้ำของ ${dup.studentName} สำเร็จ!`, "fas fa-magic");
+            scanDuplicateScores();
+        } catch(e) {
+            showToast("เกิดข้อผิดพลาด: " + e.message, "fas fa-times-circle");
+        }
+    });
+};
+
+window.fixAllDuplicates = async () => {
+    if (!window.currentDuplicateScanData || window.currentDuplicateScanData.length === 0) return;
+    
+    askConfirm("ดึงคืนคะแนนทั้งหมด", `คุณแน่ใจใช่หรือไม่ว่าต้องการหักคืนคะแนนสะสมที่เกินมาและล้างบันทึกประวัติซ้ำซ้อนทั้งหมดจำนวน ${window.currentDuplicateScanData.length} รายการ?`, async () => {
+        let successCount = 0;
+        let errorCount = 0;
+        
+        for (const dup of window.currentDuplicateScanData) {
+            try {
+                const refPath = dup.subjectType === 'drawing' ? `passports/${dup.studentPhone}` : `safety_passports/${dup.studentPhone}`;
+                const snap = await get(ref(db, refPath));
+                if (snap.exists()) {
+                    const p = snap.val();
+                    let points = p.points || 0;
+                    let history = p.history || [];
+                    
+                    points = Math.max(0, points - dup.excessPoints);
+                    
+                    const cleanedHistory = [];
+                    const seenReasons = new Set();
+                    
+                    history.forEach(item => {
+                        if (item && item.reason) {
+                            if (item.reason === dup.reason) {
+                                if (!seenReasons.has(dup.reason)) {
+                                    cleanedHistory.push(item);
+                                    seenReasons.add(dup.reason);
+                                }
+                            } else {
+                                cleanedHistory.push(item);
+                            }
+                        } else {
+                            cleanedHistory.push(item);
+                        }
+                    });
+                    
+                    cleanedHistory.push({
+                        type: 'minus',
+                        amount: dup.excessPoints,
+                        reason: `🧹 ล้างคะแนนบันทึกซ้ำซ้อนโดยระบบผู้ดูแลระบบ (ดึงแต้มคืน ${dup.excessPoints} แต้ม)`,
+                        date: new Date().toLocaleDateString('th-TH') + ' ' + new Date().toLocaleTimeString('th-TH'),
+                        timestamp: Date.now()
+                    });
+                    
+                    await update(ref(db, refPath), {
+                        points: points,
+                        history: cleanedHistory
+                    });
+                    successCount++;
+                }
+            } catch(e) {
+                console.error("Error fixing duplicate:", dup.studentPhone, e);
+                errorCount++;
+            }
+        }
+        
+        showToast(`🧹 ล้างคะแนนซ้ำทั้งหมดสำเร็จ! (${successCount} สำเร็จ, ${errorCount} ล้มเหลว)`, "fas fa-magic");
+        scanDuplicateScores();
     });
 };
 </script>

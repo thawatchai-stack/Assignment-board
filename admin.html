@@ -391,7 +391,7 @@ body{font-family:'IBM Plex Sans Thai','Prompt',sans-serif;background:#0a0f1e;col
     </div>
 </div>
 
-<div class="modal-overlay" id="modalConfirm">
+<div class="modal-overlay" id="modalConfirm" style="z-index: 600;">
     <div class="modal" style="text-align:center">
         <h3><i class="fas fa-exclamation-triangle" style="color:#f87171"></i> ยืนยันการดำเนินการ</h3>
         <p id="confirmText" style="margin-bottom:20px;color:var(--text2)"></p>
@@ -775,11 +775,17 @@ function renderEditor(){
     const activeCls = activeEditorBoardData.classrooms[activeClassroomIndex] || {assignments:[]};
     c.innerHTML = (activeCls.assignments || []).map((s,i) => {
         const questBadge = s.questId ? `<div style="font-size:0.7rem; color:#fbbf24; background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.2); border-radius:4px; padding:2px 6px; display:inline-block; margin-bottom:8px; font-weight:600;"><i class="fas fa-trophy"></i> ภารกิจประจำวิชา</div>` : '';
+        const moveLeftBtn = i > 0 ? `<i class="fas fa-chevron-left" style="color:var(--text2);cursor:pointer;margin-right:8px;" title="ย้ายไปทางซ้าย" onclick="moveAssignment(${i}, -1)"></i>` : '';
+        const moveRightBtn = i < (activeCls.assignments.length - 1) ? `<i class="fas fa-chevron-right" style="color:var(--text2);cursor:pointer;margin-right:8px;" title="ย้ายไปทางขวา" onclick="moveAssignment(${i}, 1)"></i>` : '';
         return `
         <div class="section" style="background:var(--glass2);border:1px solid rgba(255,255,255,0.08);border-radius:12px;width:300px;flex-shrink:0;padding:16px;">
             <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
                 <span contenteditable="true" onblur="saveAsgnName(${i},this.innerText)" style="font-weight:600;color:var(--primary-light)">${s.name}</span>
-                <i class="fas fa-trash-alt" style="color:#f87171;cursor:pointer;" onclick="delAssignment(${i})"></i>
+                <div style="display:flex;align-items:center;">
+                    ${moveLeftBtn}
+                    ${moveRightBtn}
+                    <i class="fas fa-trash-alt" style="color:#f87171;cursor:pointer;" onclick="delAssignment(${i})"></i>
+                </div>
             </div>
             ${questBadge}
             <div contenteditable="true" onblur="saveAsgnDesc(${i},this.innerText)" style="font-size:0.85rem;color:var(--text2);margin-bottom:12px;">${s.desc||'รายละเอียด...'}</div>
@@ -787,6 +793,22 @@ function renderEditor(){
         </div>`;
     }).join('');
 }
+
+window.moveAssignment = async (i, dir) => {
+    const activeCls = activeEditorBoardData.classrooms[activeClassroomIndex];
+    if (!activeCls || !activeCls.assignments) return;
+    
+    const targetIndex = i + dir;
+    if (targetIndex < 0 || targetIndex >= activeCls.assignments.length) return;
+    
+    const temp = activeCls.assignments[i];
+    activeCls.assignments[i] = activeCls.assignments[targetIndex];
+    activeCls.assignments[targetIndex] = temp;
+    
+    await saveEditor();
+    renderEditor();
+    showToast('💾 สลับตำแหน่งงานเรียบร้อยครับ!', 'fas fa-sort');
+};
 
 window.selectClassroom = (i) => { activeClassroomIndex = i; renderEditor(); };
 window.addClassroom = () => { activeEditorBoardData.classrooms.push({id:Date.now(), name:'ปวช.'+(activeEditorBoardData.classrooms.length+1), assignments:[]}); saveEditor(); renderEditor(); };
@@ -943,7 +965,7 @@ window.renderReviewPosts = () => {
         let attachmentHtml = '';
         if (p.attachments && p.attachments.length > 0) {
             attachmentHtml = p.attachments.map(att => {
-                if (att.startsWith('data:image')) {
+                if (att.startsWith('data:image') || att.includes('firebasestorage.googleapis.com')) {
                     return `<div class="post-attachment"><img src="${att}" style="cursor:pointer;transition:transform 0.2s;" onclick="openLightbox('${att}')" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'"></div>`;
                 } else {
                     return `<div class="post-attachment"><a href="${att}" target="_blank" class="btn-link-action"><i class="fas fa-external-link-alt"></i> เปิดลิงก์ไฟล์แนบ</a></div>`;
@@ -1208,6 +1230,12 @@ document.getElementById('btnSaveBoard').onclick = async () => {
     if(editingBoardId){
         await update(ref(db, `boards_index/${editingBoardId}`), { name, subjectType });
         await update(ref(db, `boards/${editingBoardId}`), { name, subjectType });
+        if (activeEditorBoardId === editingBoardId && activeEditorBoardData) {
+            activeEditorBoardData.name = name;
+            activeEditorBoardData.subjectType = subjectType;
+            document.getElementById('pageTitleText').innerText = 'จัดการ: ' + name;
+            renderEditor();
+        }
     } else {
         const id = 'B-'+Date.now();
         const data = { name, createdBy: currentUser, ts: Date.now(), tpl: selectedTemplate, subjectType, classrooms: [{id:Date.now(), name:'ปวช.1', assignments:[]}] };

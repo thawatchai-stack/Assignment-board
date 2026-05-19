@@ -628,6 +628,7 @@ body{font-family:'IBM Plex Sans Thai','Prompt',sans-serif;background:var(--dark)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { getDatabase, ref, set, get, update, onValue, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDgXrAED1vXW9dhe6yEIV8kaUXBF8iAsIU",
@@ -642,6 +643,16 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
+const storage = getStorage(app);
+
+function dataURLtoBlob(dataurl) {
+    var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+        bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+    while(n--){
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], {type:mime});
+}
 
 let isAuthReady = false;
 let studentUser = null;
@@ -971,6 +982,15 @@ window.onProfilePhotoSelected = function(input, who) {
 
 window.saveProfileChanges = async function() {
     if (!studentUser) return;
+    
+    const btn = document.querySelector('button[onclick="saveProfileChanges()"]');
+    let originalText = "";
+    if (btn) {
+        originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังบันทึกและอัปโหลดรูปภาพ...';
+    }
+    
     const teamName = document.getElementById('profTeamName').value.trim();
     let buddyName = document.getElementById('profBuddyName').value.trim();
     if (buddyName === '__custom__') {
@@ -983,10 +1003,27 @@ window.saveProfileChanges = async function() {
     const buddyPhoto = document.getElementById('imgBuddyPhoto').src;
     
     try {
-        // Save base64 pictures to passport_photos
         const photosPayload = {};
-        if (studentPhoto && studentPhoto.startsWith('data:image')) photosPayload.student = studentPhoto;
-        if (buddyPhoto && buddyPhoto.startsWith('data:image')) photosPayload.buddy = buddyPhoto;
+        let studentPhotoUrl = studentPhoto;
+        let buddyPhotoUrl = buddyPhoto;
+        
+        // 1. Upload student photo if new Base64
+        if (studentPhoto && studentPhoto.startsWith('data:image')) {
+            const blob = dataURLtoBlob(studentPhoto);
+            const fileRef = storageRef(storage, `profile_photos/${studentUser.phone}_student.jpg`);
+            await uploadBytes(fileRef, blob);
+            studentPhotoUrl = await getDownloadURL(fileRef);
+            photosPayload.student = studentPhotoUrl;
+        }
+        
+        // 2. Upload buddy photo if new Base64
+        if (buddyPhoto && buddyPhoto.startsWith('data:image')) {
+            const blob = dataURLtoBlob(buddyPhoto);
+            const fileRef = storageRef(storage, `profile_photos/${studentUser.phone}_buddy.jpg`);
+            await uploadBytes(fileRef, blob);
+            buddyPhotoUrl = await getDownloadURL(fileRef);
+            photosPayload.buddy = buddyPhotoUrl;
+        }
         
         if (Object.keys(photosPayload).length > 0) {
             await update(ref(db, `passport_photos/${studentUser.phone}`), photosPayload);
@@ -997,7 +1034,7 @@ window.saveProfileChanges = async function() {
             fullName: buddyName,
             nickname: buddyNick,
             phone: buddyPhone,
-            photoUrl: buddyPhoto.startsWith('data:image') ? 'has_image' : ''
+            photoUrl: (buddyPhotoUrl && (buddyPhotoUrl.startsWith('http') || buddyPhotoUrl.startsWith('data:image'))) ? buddyPhotoUrl : ''
         };
         
         // Sync payload to both passports!
@@ -1012,6 +1049,11 @@ window.saveProfileChanges = async function() {
         listenToPassports();
     } catch(e) {
         showToast('เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + e.message, false);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
     }
 };
 
@@ -1225,7 +1267,7 @@ window.openSubmitWork = async function(asgnIndex) {
         
         if (studentPost && studentPost.attachments) {
             studentPost.attachments.forEach(att => {
-                if (att.startsWith('data:image')) {
+                if (att.startsWith('data:image') || att.includes('firebasestorage.googleapis.com')) {
                     postFilesBase64.push(att);
                 } else {
                     postLargeFileLink = att;
@@ -1239,7 +1281,7 @@ window.openSubmitWork = async function(asgnIndex) {
             if (studentPost.attachments && studentPost.attachments.length > 0) {
                 fileHtml += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">';
                 studentPost.attachments.forEach(att => {
-                    if (att.startsWith('data:image')) {
+                    if (att.startsWith('data:image') || att.includes('firebasestorage.googleapis.com')) {
                         fileHtml += `<img src="${att}" style="max-width:100%;max-height:100px;border-radius:6px;border:1px solid var(--border);">`;
                     } else {
                         fileHtml += `<a href="${att}" target="_blank" class="btn-link-action" style="font-size:0.75rem;color:#818cf8;display:block;"><i class="fas fa-external-link-alt"></i> เปิดไฟล์แนบใหญ่</a>`;
@@ -1512,10 +1554,32 @@ window.submitPost = async function() {
     
     if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังส่งงาน...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังอัปโหลดรูปภาพไปยังคลังข้อมูล...';
     }
     
     try {
+        const uploadedAttachments = [];
+        
+        // Loop through and upload Base64 images to Firebase Storage
+        for (let i = 0; i < postFilesBase64.length; i++) {
+            const att = postFilesBase64[i];
+            if (att.startsWith('data:image')) {
+                // It is a new local image, upload it
+                const blob = dataURLtoBlob(att);
+                const fileRef = storageRef(storage, `assignments/${activeBoardId}/${studentUser.phone}_${Date.now()}_${i}.jpg`);
+                await uploadBytes(fileRef, blob);
+                const downloadUrl = await getDownloadURL(fileRef);
+                uploadedAttachments.push(downloadUrl);
+            } else {
+                // Already an uploaded URL, keep it
+                uploadedAttachments.push(att);
+            }
+        }
+        
+        if (postLargeFileLink) {
+            uploadedAttachments.push(postLargeFileLink);
+        }
+        
         const snap = await get(ref(db, `boards/${activeBoardId}`));
         if (!snap.exists()) {
             if (btn) {
@@ -1547,16 +1611,12 @@ window.submitPost = async function() {
             posts.splice(idx, 1);
         }
         
-        let attachments = [];
-        if (postFilesBase64.length > 0) attachments.push(...postFilesBase64);
-        if (postLargeFileLink) attachments.push(postLargeFileLink);
-        
         const payload = {
             title: title,
             desc: desc,
             studentName: studentUser.name,
             studentPhone: studentUser.phone,
-            attachments: attachments,
+            attachments: uploadedAttachments,
             isGraded: isGradedStatus,
             allowEdit: false, // Strict locking upon submission
             ts: Date.now()

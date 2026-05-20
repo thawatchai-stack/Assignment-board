@@ -560,6 +560,13 @@ let currentUser = null;
 let allBoards = {};
 let allAdmins = {};
 
+// Cache for massive passports database reads
+let cachedPassports = null;
+let cachedSafetyPassports = null;
+let lastPassportsFetchTime = 0;
+let lastSafetyPassportsFetchTime = 0;
+const CACHE_LIFETIME_MS = 30000;
+
 function showToast(msg, icon='fas fa-check-circle'){ 
     const t=document.createElement('div'); 
     t.className='toast'; 
@@ -994,6 +1001,8 @@ window.renderReviewPosts = () => {
 };
 
 window.toggleGrade = async (pi, status) => {
+    cachedPassports = null;
+    cachedSafetyPassports = null;
     const post = activeEditorBoardData.classrooms[activeClassroomIndex].assignments[activeReviewAssignmentIndex].posts[pi];
     
     // Double grading prevention guard
@@ -1352,6 +1361,8 @@ window.approveRedemption = function(redeemId) {
 };
 
 window.rejectRedemption = function(redeemId) {
+    cachedPassports = null;
+    cachedSafetyPassports = null;
     askConfirm("ยืนยันการปฏิเสธ", "คุณแน่ใจใช่หรือไม่ว่าต้องการปฏิเสธคำขอนี้? แต้มหรือสิทธิ์สะสมจะถูกโอนกลับคืนให้นักเรียนโดยอัตโนมัติ", async () => {
         try {
             const snap = await get(ref(db, `redemptions/${redeemId}`));
@@ -1438,6 +1449,8 @@ window.onAdjustmentClassroomChange = async function() {
 };
 
 window.adjustPointsIndividual = function() {
+    cachedPassports = null;
+    cachedSafetyPassports = null;
     const studentPhone = document.getElementById('adjStudent').value;
     const subject = document.getElementById('adjSubject').value;
     const type = document.getElementById('adjType').value;
@@ -1537,10 +1550,17 @@ async function updateTeacherHistoryUI() {
             });
         }
         
-        // 2. Fetch passport adjustments (drawing)
-        const dpSnap = await get(ref(db, 'passports'));
-        if (dpSnap.exists()) {
-            const dpData = dpSnap.val();
+        const now = Date.now();
+        
+        // 2. Fetch passport adjustments (drawing) using TTL cache
+        if (!cachedPassports || now - lastPassportsFetchTime > CACHE_LIFETIME_MS) {
+            const dpSnap = await get(ref(db, 'passports'));
+            cachedPassports = dpSnap.exists() ? dpSnap.val() : {};
+            lastPassportsFetchTime = now;
+        }
+        
+        if (cachedPassports) {
+            const dpData = cachedPassports;
             Object.entries(dpData).forEach(([phone, p]) => {
                 if (p.history && Array.isArray(p.history)) {
                     p.history.forEach(item => {
@@ -1559,10 +1579,15 @@ async function updateTeacherHistoryUI() {
             });
         }
         
-        // 3. Fetch passport adjustments (safety)
-        const spSnap = await get(ref(db, 'safety_passports'));
-        if (spSnap.exists()) {
-            const spData = spSnap.val();
+        // 3. Fetch passport adjustments (safety) using TTL cache
+        if (!cachedSafetyPassports || now - lastSafetyPassportsFetchTime > CACHE_LIFETIME_MS) {
+            const spSnap = await get(ref(db, 'safety_passports'));
+            cachedSafetyPassports = spSnap.exists() ? spSnap.val() : {};
+            lastSafetyPassportsFetchTime = now;
+        }
+        
+        if (cachedSafetyPassports) {
+            const spData = cachedSafetyPassports;
             Object.entries(spData).forEach(([phone, p]) => {
                 if (p.history && Array.isArray(p.history)) {
                     p.history.forEach(item => {

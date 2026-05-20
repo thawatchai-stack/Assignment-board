@@ -627,7 +627,7 @@ body{font-family:'IBM Plex Sans Thai','Prompt',sans-serif;background:var(--dark)
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getDatabase, ref, set, get, update, onValue, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { getDatabase, ref, set, get, update, onValue, push, query, orderByChild, equalTo } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
 const firebaseConfig = {
@@ -663,8 +663,12 @@ function dataURLtoBlob(dataurl) {
 
 let isAuthReady = false;
 let studentUser = null;
+let isStorageOffline = false;
 let currentActiveMainTab = 'boards';
 let currentActivePassportType = 'drawing';
+
+// Cache for profile photos to prevent redundant reads
+let studentPhotosCache = null;
 
 // Pages indices for booklets
 let dpPageIndex = 1;
@@ -886,7 +890,6 @@ function loginSuccess(studentInfo) {
     
     // Sync Redemptions Realtime
     listenToStudentRedemptions();
-    updateStudentHistoryUI();
 }
 
 window.logoutStudent = function() {
@@ -938,7 +941,8 @@ async function loadProfileDetails() {
         // Load Photos from passport_photos
         const photoSnap = await get(ref(db, `passport_photos/${studentUser.phone}`));
         if (photoSnap.exists()) {
-            const ph = photoSnap.val();
+            studentPhotosCache = photoSnap.val();
+            const ph = studentPhotosCache;
             if (ph.student) {
                 document.getElementById('imgStudentPhoto').src = ph.student;
                 document.getElementById('imgStudentPhoto').style.display = 'block';
@@ -1014,48 +1018,70 @@ window.saveProfileChanges = async function() {
         let studentPhotoUrl = studentPhoto;
         let buddyPhotoUrl = buddyPhoto;
         
-        // 1. Upload student photo if new Base64
+        const uploadPromises = [];
+        
         if (studentPhoto && studentPhoto.startsWith('data:image')) {
-            try {
-                const blob = dataURLtoBlob(studentPhoto);
-                const fileRef = storageRef(storage, `profile_photos/${studentUser.phone}_student.jpg`);
-                await promiseWithTimeout(
-                    (async () => {
-                        await uploadBytes(fileRef, blob);
-                        studentPhotoUrl = await getDownloadURL(fileRef);
-                    })(),
-                    4000,
-                    new Error("Student photo upload timeout")
-                );
-                photosPayload.student = studentPhotoUrl;
-            } catch (uploadErr) {
-                console.warn("Student profile photo upload failed, using base64 fallback:", uploadErr);
+            if (isStorageOffline) {
+                console.log("Firebase Storage is marked offline, skipping student photo upload and using base64.");
                 photosPayload.student = studentPhoto;
+            } else {
+                uploadPromises.push((async () => {
+                    try {
+                        const blob = dataURLtoBlob(studentPhoto);
+                        const fileRef = storageRef(storage, `profile_photos/${studentUser.phone}_student.jpg`);
+                        await promiseWithTimeout(
+                            (async () => {
+                                await uploadBytes(fileRef, blob);
+                                studentPhotoUrl = await getDownloadURL(fileRef);
+                            })(),
+                            2500,
+                            new Error("Student photo upload timeout")
+                        );
+                        photosPayload.student = studentPhotoUrl;
+                    } catch (uploadErr) {
+                        console.warn("Student profile photo upload failed, using base64 fallback:", uploadErr);
+                        isStorageOffline = true;
+                        photosPayload.student = studentPhoto;
+                    }
+                })());
             }
         }
         
-        // 2. Upload buddy photo if new Base64
         if (buddyPhoto && buddyPhoto.startsWith('data:image')) {
-            try {
-                const blob = dataURLtoBlob(buddyPhoto);
-                const fileRef = storageRef(storage, `profile_photos/${studentUser.phone}_buddy.jpg`);
-                await promiseWithTimeout(
-                    (async () => {
-                        await uploadBytes(fileRef, blob);
-                        buddyPhotoUrl = await getDownloadURL(fileRef);
-                    })(),
-                    4000,
-                    new Error("Buddy photo upload timeout")
-                );
-                photosPayload.buddy = buddyPhotoUrl;
-            } catch (uploadErr) {
-                console.warn("Buddy profile photo upload failed, using base64 fallback:", uploadErr);
+            if (isStorageOffline) {
+                console.log("Firebase Storage is marked offline, skipping buddy photo upload and using base64.");
                 photosPayload.buddy = buddyPhoto;
+            } else {
+                uploadPromises.push((async () => {
+                    try {
+                        const blob = dataURLtoBlob(buddyPhoto);
+                        const fileRef = storageRef(storage, `profile_photos/${studentUser.phone}_buddy.jpg`);
+                        await promiseWithTimeout(
+                            (async () => {
+                                await uploadBytes(fileRef, blob);
+                                buddyPhotoUrl = await getDownloadURL(fileRef);
+                            })(),
+                            2500,
+                            new Error("Buddy photo upload timeout")
+                        );
+                        photosPayload.buddy = buddyPhotoUrl;
+                    } catch (uploadErr) {
+                        console.warn("Buddy profile photo upload failed, using base64 fallback:", uploadErr);
+                        isStorageOffline = true;
+                        photosPayload.buddy = buddyPhoto;
+                    }
+                })());
             }
+        }
+        
+        if (uploadPromises.length > 0) {
+            await Promise.all(uploadPromises);
         }
         
         if (Object.keys(photosPayload).length > 0) {
             await update(ref(db, `passport_photos/${studentUser.phone}`), photosPayload);
+            if (!studentPhotosCache) studentPhotosCache = {};
+            Object.assign(studentPhotosCache, photosPayload);
         }
         
         // Build buddy payload
@@ -1587,56 +1613,56 @@ window.submitPost = async function() {
     }
     
     try {
-        const uploadedAttachments = [];
-        
-        // Loop through and upload Base64 images to Firebase Storage
-        for (let i = 0; i < postFilesBase64.length; i++) {
-            const att = postFilesBase64[i];
+        // Upload images in parallel to bypass sequential latency and timeouts
+        const uploadPromises = postFilesBase64.map(async (att, i) => {
             if (att.startsWith('data:image')) {
-                // It is a new local image, upload it
-                try {
-                    const blob = dataURLtoBlob(att);
-                    const fileRef = storageRef(storage, `assignments/${activeBoardId}/${studentUser.phone}_${Date.now()}_${i}.jpg`);
-                    await promiseWithTimeout(
-                        (async () => {
-                            await uploadBytes(fileRef, blob);
-                            const downloadUrl = await getDownloadURL(fileRef);
-                            uploadedAttachments.push(downloadUrl);
-                        })(),
-                        4000,
-                        new Error("Assignment photo upload timeout")
-                    );
-                } catch (uploadErr) {
-                    console.warn("Firebase Storage upload failed, using compressed base64 fallback:", uploadErr);
-                    uploadedAttachments.push(att);
+                if (isStorageOffline) {
+                    console.log("Firebase Storage is marked offline, skipping assignment photo upload and using base64.");
+                    return att;
+                } else {
+                    try {
+                        const blob = dataURLtoBlob(att);
+                        const fileRef = storageRef(storage, `assignments/${activeBoardId}/${studentUser.phone}_${Date.now()}_${i}.jpg`);
+                        let downloadUrl = att;
+                        await promiseWithTimeout(
+                            (async () => {
+                                await uploadBytes(fileRef, blob);
+                                downloadUrl = await getDownloadURL(fileRef);
+                            })(),
+                            2500,
+                            new Error("Assignment photo upload timeout")
+                        );
+                        return downloadUrl;
+                    } catch (uploadErr) {
+                        console.warn("Firebase Storage upload failed, using compressed base64 fallback:", uploadErr);
+                        isStorageOffline = true;
+                        return att;
+                    }
                 }
             } else {
-                // Already an uploaded URL, keep it
-                uploadedAttachments.push(att);
+                return att;
             }
-        }
+        });
+        
+        const uploadedAttachments = await Promise.all(uploadPromises);
         
         if (postLargeFileLink) {
             uploadedAttachments.push(postLargeFileLink);
         }
         
-        const snap = await get(ref(db, `boards/${activeBoardId}`));
-        if (!snap.exists()) {
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = '🚀 ยืนยันการส่งงาน';
+        // Fetch only the posts array to prevent race conditions and massive payload sizes
+        const postsRef = ref(db, `boards/${activeBoardId}/classrooms/${activeClassroomIndex}/assignments/${activeAssignmentIndex}/posts`);
+        const postsSnap = await get(postsRef);
+        
+        let posts = [];
+        if (postsSnap.exists()) {
+            posts = postsSnap.val();
+            if (!Array.isArray(posts)) {
+                posts = Object.values(posts);
             }
-            return;
-        }
-        const b = snap.val();
-        
-        let assignments = b.classrooms[activeClassroomIndex].assignments;
-        let posts = assignments[activeAssignmentIndex].posts || [];
-        if (!Array.isArray(posts)) {
-            posts = Object.values(posts);
         }
         
-        const idx = posts.findIndex(p => p.studentPhone === studentUser.phone);
+        const idx = posts.findIndex(p => p && p.studentPhone === studentUser.phone);
         let isGradedStatus = false;
         
         if (idx !== -1) {
@@ -1651,7 +1677,6 @@ window.submitPost = async function() {
                 return;
             }
             isGradedStatus = existingPost.isGraded;
-            posts.splice(idx, 1);
         }
         
         const payload = {
@@ -1665,10 +1690,9 @@ window.submitPost = async function() {
             ts: Date.now()
         };
         
-        posts.push(payload);
-        assignments[activeAssignmentIndex].posts = posts;
-        
-        await set(ref(db, `boards/${activeBoardId}/classrooms/${activeClassroomIndex}/assignments`), assignments);
+        // Target specifically the student's slot to avoid writing over other students
+        const targetIndex = idx !== -1 ? idx : posts.length;
+        await set(ref(db, `boards/${activeBoardId}/classrooms/${activeClassroomIndex}/assignments/${activeAssignmentIndex}/posts/${targetIndex}`), payload);
         showToast('ส่งงานสำเร็จเรียบร้อยครับ!');
         
         postFilesBase64 = [];
@@ -1752,10 +1776,14 @@ async function updateDrawingPassportBooklet() {
     document.getElementById('dp-name-stu').innerText = p.firstName + ' ' + p.lastName;
     document.getElementById('dp-name-bud').innerText = (p.buddy && p.buddy.fullName) ? p.buddy.fullName : 'ยังไม่มีบัดดี้';
     
-    // Render Photos
-    const photoSnap = await get(ref(db, `passport_photos/${studentUser.phone}`));
-    if (photoSnap.exists()) {
-        const ph = photoSnap.val();
+    // Render Photos efficiently using cache
+    if (!studentPhotosCache) {
+        const photoSnap = await get(ref(db, `passport_photos/${studentUser.phone}`));
+        if (photoSnap.exists()) studentPhotosCache = photoSnap.val();
+    }
+    
+    if (studentPhotosCache) {
+        const ph = studentPhotosCache;
         if (ph.student) {
             document.getElementById('dp-photo-stu').src = ph.student;
             document.getElementById('dp-photo-stu').style.display = 'block';
@@ -1822,10 +1850,14 @@ async function updateSafetyPassportBooklet() {
     document.getElementById('sp-name-stu').innerText = p.firstName + ' ' + p.lastName;
     document.getElementById('sp-name-bud').innerText = (p.buddy && p.buddy.fullName) ? p.buddy.fullName : 'ยังไม่มีบัดดี้';
     
-    // Render Photos
-    const photoSnap = await get(ref(db, `passport_photos/${studentUser.phone}`));
-    if (photoSnap.exists()) {
-        const ph = photoSnap.val();
+    // Render Photos efficiently using cache
+    if (!studentPhotosCache) {
+        const photoSnap = await get(ref(db, `passport_photos/${studentUser.phone}`));
+        if (photoSnap.exists()) studentPhotosCache = photoSnap.val();
+    }
+    
+    if (studentPhotosCache) {
+        const ph = studentPhotosCache;
         if (ph.student) {
             document.getElementById('sp-photo-stu').src = ph.student;
             document.getElementById('sp-photo-stu').style.display = 'block';
@@ -2150,12 +2182,13 @@ async function executeRedeem(rewardType, rewardName, subjectType, pointsCost, st
 
 function listenToStudentRedemptions() {
     if (!studentUser) return;
-    onValue(ref(db, 'redemptions'), (snap) => {
+    const q = query(ref(db, 'redemptions'), orderByChild('studentPhone'), equalTo(studentUser.phone));
+    onValue(q, (snap) => {
         const zone = document.getElementById('shopActiveRedemptionsZone');
         const list = document.getElementById('shopActiveRedemptionsList');
         
-        // Trigger history UI update whenever redemptions change (e.g. approved/rejected)
-        updateStudentHistoryUI();
+        // Trigger history UI update with the preloaded snap!
+        updateStudentHistoryUI(snap);
         
         if (!snap.exists()) {
             zone.style.display = 'none';
@@ -2163,7 +2196,7 @@ function listenToStudentRedemptions() {
         }
         
         const data = snap.val();
-        const active = Object.values(data).filter(r => r.studentPhone === studentUser.phone && r.status === 'pending');
+        const active = Object.values(data).filter(r => r.status === 'pending');
         
         if (active.length === 0) {
             zone.style.display = 'none';
@@ -2189,7 +2222,7 @@ function listenToStudentRedemptions() {
     });
 }
 
-async function updateStudentHistoryUI() {
+async function updateStudentHistoryUI(preloadedRedeemsSnap = null) {
     if (!studentUser) return;
     const historyContainer = document.getElementById('studentShopHistoryList');
     if (!historyContainer) return;
@@ -2197,22 +2230,25 @@ async function updateStudentHistoryUI() {
     try {
         const listItems = [];
         
-        // 1. Fetch Redemptions history
-        const redeemsSnap = await get(ref(db, 'redemptions'));
-        if (redeemsSnap.exists()) {
+        // 1. Fetch Redemptions history filtered by student phone (or use preloaded to save network)
+        let redeemsSnap = preloadedRedeemsSnap;
+        if (!redeemsSnap) {
+            const q = query(ref(db, 'redemptions'), orderByChild('studentPhone'), equalTo(studentUser.phone));
+            redeemsSnap = await get(q);
+        }
+        
+        if (redeemsSnap && redeemsSnap.exists()) {
             const data = redeemsSnap.val();
             Object.values(data).forEach(r => {
-                if (r.studentPhone === studentUser.phone) {
-                    listItems.push({
-                        type: 'redemption',
-                        title: r.rewardName,
-                        subject: r.subjectType === 'drawing' ? 'เขียนแบบฯ' : 'ความปลอดภัยฯ',
-                        cost: r.costPoints > 0 ? `-${r.costPoints} แต้ม` : `-${r.costStamps} ดวง`,
-                        status: r.status,
+                listItems.push({
+                    type: 'redemption',
+                    title: r.rewardName,
+                    subject: r.subjectType === 'drawing' ? 'เขียนแบบฯ' : 'ความปลอดภัยฯ',
+                    cost: r.costPoints > 0 ? `-${r.costPoints} แต้ม` : `-${r.costStamps} ดวง`,
+                    status: r.status,
                         timestamp: r.timestamp || Date.now(),
                         code: r.code
                     });
-                }
             });
         }
         

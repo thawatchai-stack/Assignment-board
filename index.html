@@ -635,7 +635,7 @@ const firebaseConfig = {
   authDomain: "prates-ea840.firebaseapp.com",
   databaseURL: "https://prates-ea840-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "prates-ea840",
-  storageBucket: "prates-ea840.firebasestorage.app",
+  storageBucket: "prates-ea840.appspot.com",
   messagingSenderId: "464798792570",
   appId: "1:464798792570:web:39954e2ef16f2ed049b4c3"
 };
@@ -644,6 +644,13 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 const storage = getStorage(app);
+
+function promiseWithTimeout(promise, ms, timeoutError = new Error('Timeout')) {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(timeoutError), ms))
+    ]);
+}
 
 function dataURLtoBlob(dataurl) {
     var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
@@ -1009,20 +1016,42 @@ window.saveProfileChanges = async function() {
         
         // 1. Upload student photo if new Base64
         if (studentPhoto && studentPhoto.startsWith('data:image')) {
-            const blob = dataURLtoBlob(studentPhoto);
-            const fileRef = storageRef(storage, `profile_photos/${studentUser.phone}_student.jpg`);
-            await uploadBytes(fileRef, blob);
-            studentPhotoUrl = await getDownloadURL(fileRef);
-            photosPayload.student = studentPhotoUrl;
+            try {
+                const blob = dataURLtoBlob(studentPhoto);
+                const fileRef = storageRef(storage, `profile_photos/${studentUser.phone}_student.jpg`);
+                await promiseWithTimeout(
+                    (async () => {
+                        await uploadBytes(fileRef, blob);
+                        studentPhotoUrl = await getDownloadURL(fileRef);
+                    })(),
+                    4000,
+                    new Error("Student photo upload timeout")
+                );
+                photosPayload.student = studentPhotoUrl;
+            } catch (uploadErr) {
+                console.warn("Student profile photo upload failed, using base64 fallback:", uploadErr);
+                photosPayload.student = studentPhoto;
+            }
         }
         
         // 2. Upload buddy photo if new Base64
         if (buddyPhoto && buddyPhoto.startsWith('data:image')) {
-            const blob = dataURLtoBlob(buddyPhoto);
-            const fileRef = storageRef(storage, `profile_photos/${studentUser.phone}_buddy.jpg`);
-            await uploadBytes(fileRef, blob);
-            buddyPhotoUrl = await getDownloadURL(fileRef);
-            photosPayload.buddy = buddyPhotoUrl;
+            try {
+                const blob = dataURLtoBlob(buddyPhoto);
+                const fileRef = storageRef(storage, `profile_photos/${studentUser.phone}_buddy.jpg`);
+                await promiseWithTimeout(
+                    (async () => {
+                        await uploadBytes(fileRef, blob);
+                        buddyPhotoUrl = await getDownloadURL(fileRef);
+                    })(),
+                    4000,
+                    new Error("Buddy photo upload timeout")
+                );
+                photosPayload.buddy = buddyPhotoUrl;
+            } catch (uploadErr) {
+                console.warn("Buddy profile photo upload failed, using base64 fallback:", uploadErr);
+                photosPayload.buddy = buddyPhoto;
+            }
         }
         
         if (Object.keys(photosPayload).length > 0) {
@@ -1565,11 +1594,22 @@ window.submitPost = async function() {
             const att = postFilesBase64[i];
             if (att.startsWith('data:image')) {
                 // It is a new local image, upload it
-                const blob = dataURLtoBlob(att);
-                const fileRef = storageRef(storage, `assignments/${activeBoardId}/${studentUser.phone}_${Date.now()}_${i}.jpg`);
-                await uploadBytes(fileRef, blob);
-                const downloadUrl = await getDownloadURL(fileRef);
-                uploadedAttachments.push(downloadUrl);
+                try {
+                    const blob = dataURLtoBlob(att);
+                    const fileRef = storageRef(storage, `assignments/${activeBoardId}/${studentUser.phone}_${Date.now()}_${i}.jpg`);
+                    await promiseWithTimeout(
+                        (async () => {
+                            await uploadBytes(fileRef, blob);
+                            const downloadUrl = await getDownloadURL(fileRef);
+                            uploadedAttachments.push(downloadUrl);
+                        })(),
+                        4000,
+                        new Error("Assignment photo upload timeout")
+                    );
+                } catch (uploadErr) {
+                    console.warn("Firebase Storage upload failed, using compressed base64 fallback:", uploadErr);
+                    uploadedAttachments.push(att);
+                }
             } else {
                 // Already an uploaded URL, keep it
                 uploadedAttachments.push(att);
@@ -1592,6 +1632,9 @@ window.submitPost = async function() {
         
         let assignments = b.classrooms[activeClassroomIndex].assignments;
         let posts = assignments[activeAssignmentIndex].posts || [];
+        if (!Array.isArray(posts)) {
+            posts = Object.values(posts);
+        }
         
         const idx = posts.findIndex(p => p.studentPhone === studentUser.phone);
         let isGradedStatus = false;

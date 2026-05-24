@@ -1,285 +1,470 @@
 <!DOCTYPE html>
 <html lang="th">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ClassBoard — นำเข้ารายชื่อนักเรียน</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#0a0f1e;--glass:rgba(15,23,42,0.85);--glass2:rgba(255,255,255,0.06);--primary:#14b8a6;--accent:#6366f1;--text:#f1f5f9;--text2:#94a3b8;--radius:14px}
-body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
-.card{background:var(--glass);border:1px solid rgba(255,255,255,0.08);border-radius:var(--radius);padding:32px;max-width:640px;width:100%;backdrop-filter:blur(20px)}
-h1{font-size:1.5rem;margin-bottom:6px;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.sub{color:var(--text2);font-size:.85rem;margin-bottom:24px}
-.btn{padding:12px 20px;border:none;border-radius:10px;cursor:pointer;font-family:inherit;font-size:.9rem;font-weight:600;transition:all .3s;display:inline-flex;align-items:center;gap:8px}
-.btn-primary{background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;box-shadow:0 4px 15px rgba(99,102,241,0.3)}
-.btn-primary:hover{transform:translateY(-2px)}
-.btn-outline{background:var(--glass2);color:var(--text);border:1px solid rgba(255,255,255,0.12)}
-.btn-outline:hover{background:rgba(255,255,255,0.12)}
-textarea{width:100%;min-height:200px;padding:14px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.12);border-radius:10px;color:var(--text);font-family:monospace;font-size:.8rem;resize:vertical;margin-bottom:16px}
-textarea:focus{outline:none;border-color:var(--primary)}
-.log{background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px;font-size:.8rem;color:var(--primary);max-height:200px;overflow-y:auto;margin-top:16px;white-space:pre-wrap;display:none}
-.actions{display:flex;gap:10px;flex-wrap:wrap}
-label.file-label{display:inline-flex;align-items:center;gap:8px;padding:12px 20px;background:var(--glass2);border:1px dashed rgba(255,255,255,0.2);border-radius:10px;cursor:pointer;font-size:.9rem;color:var(--text2);transition:all .2s}
-label.file-label:hover{border-color:var(--primary);color:var(--primary)}
-input[type=file]{display:none}
-.info{background:rgba(20,184,166,0.1);border:1px solid rgba(20,184,166,0.2);border-radius:10px;padding:12px;font-size:.8rem;color:var(--primary);margin-bottom:16px;line-height:1.6}
-hr{border:none;border-top:1px solid rgba(255,255,255,0.06);margin:20px 0}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClassBoard — นำเข้ารายชื่อนักเรียน</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box
+    }
+
+    :root {
+      --bg: #0a0f1e;
+      --glass: rgba(15, 23, 42, 0.85);
+      --glass2: rgba(255, 255, 255, 0.06);
+      --primary: #14b8a6;
+      --accent: #6366f1;
+      --text: #f1f5f9;
+      --text2: #94a3b8;
+      --radius: 14px
+    }
+
+    body {
+      font-family: 'IBM Plex Sans Thai', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px
+    }
+
+    .card {
+      background: var(--glass);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius);
+      padding: 32px;
+      max-width: 640px;
+      width: 100%;
+      backdrop-filter: blur(20px)
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 6px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent
+    }
+
+    .sub {
+      color: var(--text2);
+      font-size: .85rem;
+      margin-bottom: 24px
+    }
+
+    .btn {
+      padding: 12px 20px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: .9rem;
+      font-weight: 600;
+      transition: all .3s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: #fff;
+      box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3)
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px)
+    }
+
+    .btn-outline {
+      background: var(--glass2);
+      color: var(--text);
+      border: 1px solid rgba(255, 255, 255, 0.12)
+    }
+
+    .btn-outline:hover {
+      background: rgba(255, 255, 255, 0.12)
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 200px;
+      padding: 14px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: monospace;
+      font-size: .8rem;
+      resize: vertical;
+      margin-bottom: 16px
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--primary)
+    }
+
+    .log {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 14px;
+      font-size: .8rem;
+      color: var(--primary);
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 16px;
+      white-space: pre-wrap;
+      display: none
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap
+    }
+
+    label.file-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      background: var(--glass2);
+      border: 1px dashed rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: .9rem;
+      color: var(--text2);
+      transition: all .2s
+    }
+
+    label.file-label:hover {
+      border-color: var(--primary);
+      color: var(--primary)
+    }
+
+    input[type=file] {
+      display: none
+    }
+
+    .info {
+      background: rgba(20, 184, 166, 0.1);
+      border: 1px solid rgba(20, 184, 166, 0.2);
+      border-radius: 10px;
+      padding: 12px;
+      font-size: .8rem;
+      color: var(--primary);
+      margin-bottom: 16px;
+      line-height: 1.6
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      margin: 20px 0
+    }
+  </style>
 </head>
+
 <body>
-<div class="card">
-  <h1>📋 นำเข้ารายชื่อนักเรียน</h1>
-  <p class="sub">อัปโหลดไฟล์ CSV หรือใช้ข้อมูลตัวอย่างเพื่อสร้าง Master Data ใน Firebase</p>
+  <div class="card">
+    <h1>📋 นำเข้ารายชื่อนักเรียน</h1>
+    <p class="sub">อัปโหลดไฟล์ CSV หรือใช้ข้อมูลตัวอย่างเพื่อสร้าง Master Data ใน Supabase</p>
 
-  <div class="info">
-    📌 <strong>รูปแบบ CSV:</strong> แต่ละแถวมี <code>ลำดับ, ชื่อ นามสกุล</code> แยกตามห้อง<br>
-    📌 หรือ <strong>วางรายชื่อโดยตรง:</strong> วางรายชื่อทีละบรรทัดลงในช่องใส่ชื่อด้านล่างได้เลยครับ (100% ชัวร์สุด!)
-  </div>
-
-  <div style="display:flex;gap:15px;margin-bottom:16px;flex-wrap:wrap">
-    <div>
-      <label style="font-size:.85rem;color:var(--text2);display:block;margin-bottom:6px">เลือกห้องเรียนสำหรับข้อมูลนี้:</label>
-      <select id="selRoom" style="padding:10px 14px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.12);border-radius:10px;color:var(--text);font-family:inherit;font-size:.9rem;width:200px">
-        <option value="ปวช.1/1">ปวช.1/1</option>
-        <option value="ปวช.1/2">ปวช.1/2</option>
-        <option value="ปวช.1/3">ปวช.1/3</option>
-        <option value="ปวช.1/4">ปวช.1/4</option>
-      </select>
+    <div class="info">
+      📌 <strong>รูปแบบ CSV:</strong> แต่ละแถวมี <code>ลำดับ, ชื่อ นามสกุล</code> แยกตามห้อง<br>
+      📌 หรือ <strong>วางรายชื่อโดยตรง:</strong> วางรายชื่อทีละบรรทัดลงในช่องใส่ชื่อด้านล่างได้เลยครับ (100% ชัวร์สุด!)
     </div>
-    <div>
-      <label style="font-size:.85rem;color:var(--text2);display:block;margin-bottom:6px">การเข้ารหัสไฟล์ (Encoding):</label>
-      <select id="selEncoding" style="padding:10px 14px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.12);border-radius:10px;color:var(--text);font-family:inherit;font-size:.9rem;width:200px">
-        <option value="UTF-8">UTF-8 (ทั่วไป/สากล)</option>
-        <option value="windows-874">TIS-620 / Windows-874 (จาก Excel ไทย)</option>
-      </select>
+
+    <div style="display:flex;gap:15px;margin-bottom:16px;flex-wrap:wrap">
+      <div>
+        <label
+          style="font-size:.85rem;color:var(--text2);display:block;margin-bottom:6px">เลือกห้องเรียนสำหรับข้อมูลนี้:</label>
+        <select id="selRoom"
+          style="padding:10px 14px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.12);border-radius:10px;color:var(--text);font-family:inherit;font-size:.9rem;width:200px">
+          <option value="ปวช.1/1">ปวช.1/1</option>
+          <option value="ปวช.1/2">ปวช.1/2</option>
+          <option value="ปวช.1/3">ปวช.1/3</option>
+          <option value="ปวช.1/4">ปวช.1/4</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:.85rem;color:var(--text2);display:block;margin-bottom:6px">การเข้ารหัสไฟล์
+          (Encoding):</label>
+        <select id="selEncoding"
+          style="padding:10px 14px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.12);border-radius:10px;color:var(--text);font-family:inherit;font-size:.9rem;width:200px">
+          <option value="UTF-8">UTF-8 (ทั่วไป/สากล)</option>
+          <option value="windows-874">TIS-620 / Windows-874 (จาก Excel ไทย)</option>
+        </select>
+      </div>
     </div>
+
+    <div class="actions" style="margin-bottom:20px">
+      <label class="file-label">📂 เลือกไฟล์ CSV / TXT
+        <input type="file" id="csvFile" accept=".csv,.txt" onchange="handleCSV(this)">
+      </label>
+      <button class="btn btn-outline" onclick="loadSampleData()">🧪 สร้างข้อมูลตัวอย่าง</button>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <label style="font-size:.85rem;color:var(--text2);display:block;margin-bottom:6px">หรือ วางรายชื่อนักเรียนตรงนี้
+        (ทีละบรรทัด - เช่น "1. นายสมชาย ใจดี"):</label>
+      <textarea id="rawNames" style="min-height:100px;margin-bottom:8px"
+        placeholder="กิตติ พงศ์ภักดิ์&#10;ปรีชา สุขใจ&#10;วิภา แก้วมณี"></textarea>
+      <button class="btn btn-outline" onclick="parseRawNames()">⚡ แปลงรายชื่อที่วาง</button>
+    </div>
+
+    <hr>
+    <label style="font-size:.85rem;color:var(--text2);display:block;margin-bottom:6px">ข้อมูลที่จะ Push (JSON
+      Preview):</label>
+    <textarea id="preview" placeholder='{"ปวช.1/1": {"ชื่อ_นามสกุล": {"registered": false, "phone": ""}}}'></textarea>
+
+    <div class="actions">
+      <button class="btn btn-primary" onclick="pushToSupabase()">🚀 Push ลง Supabase</button>
+      <button class="btn btn-outline" onclick="clearAll()">🗑️ ล้างข้อมูลทั้งหมด</button>
+    </div>
+
+    <div class="log" id="log"></div>
   </div>
 
-  <div class="actions" style="margin-bottom:20px">
-    <label class="file-label">📂 เลือกไฟล์ CSV / TXT
-      <input type="file" id="csvFile" accept=".csv,.txt" onchange="handleCSV(this)">
-    </label>
-    <button class="btn btn-outline" onclick="loadSampleData()">🧪 สร้างข้อมูลตัวอย่าง</button>
-  </div>
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-  <div style="margin-bottom:16px">
-    <label style="font-size:.85rem;color:var(--text2);display:block;margin-bottom:6px">หรือ วางรายชื่อนักเรียนตรงนี้ (ทีละบรรทัด - เช่น "1. นายสมชาย ใจดี"):</label>
-    <textarea id="rawNames" style="min-height:100px;margin-bottom:8px" placeholder="กิตติ พงศ์ภักดิ์&#10;ปรีชา สุขใจ&#10;วิภา แก้วมณี"></textarea>
-    <button class="btn btn-outline" onclick="parseRawNames()">⚡ แปลงรายชื่อที่วาง</button>
-  </div>
+    const SUPABASE_URL = "https://vdceebtdfiysopihxcgr.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_mKWw9FNiiZN-V9kU7FUDvA_IFvGpFLu";
 
-  <hr>
-  <label style="font-size:.85rem;color:var(--text2);display:block;margin-bottom:6px">ข้อมูลที่จะ Push (JSON Preview):</label>
-  <textarea id="preview" placeholder='{"ปวช.1/1": {"ชื่อ_นามสกุล": {"registered": false, "phone": ""}}}'></textarea>
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  <div class="actions">
-    <button class="btn btn-primary" onclick="pushToFirebase()">🚀 Push ลง Firebase</button>
-    <button class="btn btn-outline" onclick="clearAll()">🗑️ ล้างข้อมูลทั้งหมด</button>
-  </div>
+    let isReady = true;
+    log('✅ เชื่อมต่อ Supabase สำเร็จ');
 
-  <div class="log" id="log"></div>
-</div>
+    window.pushToSupabase = async function () {
+      if (!isReady) { log('⏳ กำลังเชื่อมต่อ...'); return; }
+      const raw = document.getElementById('preview').value.trim();
+      if (!raw) { log('⚠️ ไม่มีข้อมูลให้ Push'); return; }
+      try {
+        const data = JSON.parse(raw);
+        log('📤 กำลัง Push ข้อมูลไปยัง table: students_master...');
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getDatabase, ref, set, get, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        let totalRooms = 0;
+        let totalStudents = 0;
 
-const firebaseConfig = {
-  apiKey: "AIzaSyDgXrAED1vXW9dhe6yEIV8kaUXBF8iAsIU",
-  authDomain: "prates-ea840.firebaseapp.com",
-  databaseURL: "https://prates-ea840-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "prates-ea840",
-  storageBucket: "prates-ea840.firebasestorage.app",
-  messagingSenderId: "464798792570",
-  appId: "1:464798792570:web:39954e2ef16f2ed049b4c3"
-};
+        for (const room of Object.keys(data)) {
+          // 1. ดึงข้อมูลนักเรียนที่มีอยู่แล้วในห้องเรียนนี้มาตรวจสอบ
+          const { data: existingStudents, error: fetchError } = await supabase
+            .from('students_master')
+            .select('*')
+            .eq('classroom', room);
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
+          if (fetchError) throw fetchError;
 
-let isReady = false;
-signInAnonymously(auth).then(() => {
-  isReady = true;
-  log('✅ เชื่อมต่อ Firebase สำเร็จ (prates-ea840)');
-}).catch(err => log('❌ Auth Error: ' + err.message));
+          const existingMap = {};
+          if (existingStudents) {
+            existingStudents.forEach(s => {
+              // แมปด้วย ชื่อ-นามสกุล เพื่อเอาไว้ตรวจสอบสิทธิ์ registered เดิมในระบบ
+              const fullName = `${s.first_name || ''} ${s.last_name || ''}`.trim();
+              existingMap[fullName] = s;
+            });
+          }
 
-window.pushToFirebase = async function() {
-  if (!isReady) { log('⏳ กำลังเชื่อมต่อ...'); return; }
-  const raw = document.getElementById('preview').value.trim();
-  if (!raw) { log('⚠️ ไม่มีข้อมูลให้ Push'); return; }
-  try {
-    const data = JSON.parse(raw);
-    log('📤 กำลัง Push ข้อมูลไปยัง /students_master/...');
-    
-    let totalRooms = 0;
-    let totalStudents = 0;
-    
-    for (const room of Object.keys(data)) {
-      // room can be "ปวช.1/1" which contains a slash. Writing directly to students_master/${room} is valid path!
-      const snap = await get(ref(db, `students_master/${room}`));
-      const existingRoom = snap.exists() ? snap.val() : {};
-      
-      for (const name of Object.keys(data[room])) {
-        if (existingRoom[name] && existingRoom[name].registered) {
-          log(`⏭️ ข้าม ${name} (${room}) — ลงทะเบียนแล้ว`);
-        } else {
-          existingRoom[name] = data[room][name];
+          const toUpsert = [];
+          let skippedCount = 0;
+
+          for (const name of Object.keys(data[room])) {
+            if (existingMap[name] && existingMap[name].registered) {
+              log(`⏭️ ข้าม ${name} (${room}) — ลงทะเบียนแล้ว`);
+              skippedCount++;
+            } else {
+              // แยกชื่อและนามสกุลออกจากกันด้วยช่องว่าง
+              const nameParts = name.trim().split(/\s+/);
+              const firstName = nameParts[0] || "";
+              const lastName = nameParts.slice(1).join(" ") || "";
+              let studentPhone = data[room][name].phone || "";
+
+              // ⚠️ ข้อจำกัดสำคัญของตารางคุณ: 'phone' เป็น Primary Key และห้ามเป็นค่าซ้ำ
+              // ถ้าข้อมูลตัวอย่างไม่มีเบอร์โทร (เป็นค่าว่าง "") หากใส่ลงไปพร้อมกันหลายคน Supabase จะบล็อกเพราะเบอร์ว่างซ้ำกัน
+              // วิธีแก้ขัดสมาธิสำหรับทดสอบ: ถ้าไม่มีเบอร์โทร จะสุ่มเลขระบบขึ้นมาให้ชั่วคราวเพื่อไม่ให้ระบบพัง
+              if (!studentPhone) {
+                studentPhone = 'TEMP-' + Math.random().toString(36).substr(2, 9);
+              }
+
+              toUpsert.push({
+                classroom: room,
+                first_name: firstName,
+                last_name: lastName,
+                registered: data[room][name].registered || false,
+                phone: studentPhone
+              });
+            }
+          }
+
+          if (toUpsert.length > 0) {
+            // 2. ใช้ 'phone' เป็นเงื่อนไขหลักในการ Upsert ตามโครงสร้างของตาราง
+            const { error: upsertError } = await supabase
+              .from('students_master')
+              .upsert(toUpsert, { onConflict: 'phone' });
+
+            if (upsertError) throw upsertError;
+          }
+
+          const studentCount = toUpsert.length;
+          log(`✅ บันทึกห้อง ${room} สำเร็จ! อัปเดต/เพิ่ม ${studentCount} คน, ข้าม ${skippedCount} คน`);
+          totalRooms++;
+          totalStudents += studentCount;
         }
+
+        log(`🎉 Push สำเร็จ! รวมนำเข้า ${totalStudents} คน ใน ${totalRooms} ห้องเรียน`);
+      } catch (e) {
+        log('❌ Error: ' + e.message);
       }
-      
-      await set(ref(db, `students_master/${room}`), existingRoom);
-      const studentCount = Object.keys(existingRoom).length;
-      log(`✅ บันทึกห้อง ${room} สำเร็จ! มีนักเรียนรวม ${studentCount} คน`);
-      totalRooms++;
-      totalStudents += studentCount;
-    }
-    
-    log(`🎉 Push สำเร็จ! รวม ${totalStudents} คน ใน ${totalRooms} ห้องเรียน`);
-  } catch(e) {
-    log('❌ Error: ' + e.message);
-  }
-};
+    };
 
-window.handleCSV = function(input) {
-  const file = input.files[0];
-  if (!file) return;
-  const room = document.getElementById('selRoom').value;
-  const encoding = document.getElementById('selEncoding').value;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const lines = e.target.result.split('\n').map(l => l.trim()).filter(Boolean);
-    const result = {};
-    result[room] = {};
-    lines.forEach(line => {
-      // Support formats: CSV split by comma (,) or semicolon (;)
-      let parts = [];
-      if (line.includes(';')) {
-        parts = line.split(';').map(s => s.trim().replace(/"/g, ''));
-      } else {
-        parts = line.split(',').map(s => s.trim().replace(/"/g, ''));
+    window.handleCSV = function (input) {
+      const file = input.files[0];
+      if (!file) return;
+      const room = document.getElementById('selRoom').value;
+      const encoding = document.getElementById('selEncoding').value;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const lines = e.target.result.split('\n').map(l => l.trim()).filter(Boolean);
+        const result = {};
+        result[room] = {};
+        lines.forEach(line => {
+          // Support formats: CSV split by comma (,) or semicolon (;)
+          let parts = [];
+          if (line.includes(';')) {
+            parts = line.split(';').map(s => s.trim().replace(/"/g, ''));
+          } else {
+            parts = line.split(',').map(s => s.trim().replace(/"/g, ''));
+          }
+
+          let name = parts.length >= 2 ? parts.slice(1).join(' ').trim() : parts[0];
+          // Remove leading numbers, prefixes like นาย/นางสาว/ด.ช./ด.ญ.
+          name = name.replace(/^\d+\s*\.?\s*/, '').trim();
+          name = name.replace(/^(นาย|นางสาว|ด\.ช\.|ด\.ญ\.)\s*/, '').trim();
+
+          if (name && name.length > 1 && !name.includes('ชื่อ') && !name.includes('นามสกุล') && !name.includes('Name')) {
+            // Safe key for names
+            const safeKey = name.replace(/[.#$\[\]\/]/g, '_');
+            result[room][safeKey] = { registered: false, phone: "" };
+          }
+        });
+
+        // Merge with existing preview
+        try {
+          const existing = JSON.parse(document.getElementById('preview').value || '{}');
+          existing[room] = { ...existing[room], ...result[room] };
+          document.getElementById('preview').value = JSON.stringify(existing, null, 2);
+        } catch {
+          document.getElementById('preview').value = JSON.stringify(result, null, 2);
+        }
+
+        log(`📄 อ่านไฟล์ ${file.name} (${encoding}): พบ ${Object.keys(result[room]).length} คน ใน ${room}`);
+      };
+      reader.readAsText(file, encoding);
+      input.value = '';
+    };
+
+    window.parseRawNames = function () {
+      const raw = document.getElementById('rawNames').value.trim();
+      if (!raw) { alert('กรุณาวางรายชื่อก่อนกดปุ่มครับ'); return; }
+      const room = document.getElementById('selRoom').value;
+      const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+      const result = {};
+      result[room] = {};
+
+      lines.forEach(line => {
+        let name = line;
+        // Remove leading numbers
+        name = name.replace(/^\d+\s*\.?\s*/, '').trim();
+        name = name.replace(/^(นาย|นางสาว|ด\.ช\.|ด\.ญ\.)\s*/, '').trim();
+
+        if (name && name.length > 1) {
+          const safeKey = name.replace(/[.#$\[\]\/]/g, '_');
+          result[room][safeKey] = { registered: false, phone: "" };
+        }
+      });
+
+      try {
+        const existing = JSON.parse(document.getElementById('preview').value || '{}');
+        existing[room] = { ...existing[room], ...result[room] };
+        document.getElementById('preview').value = JSON.stringify(existing, null, 2);
+      } catch {
+        document.getElementById('preview').value = JSON.stringify(result, null, 2);
       }
-      
-      let name = parts.length >= 2 ? parts.slice(1).join(' ').trim() : parts[0];
-      // Remove leading numbers, prefixes like นาย/นางสาว/ด.ช./ด.ญ.
-      name = name.replace(/^\d+\s*\.?\s*/, '').trim();
-      name = name.replace(/^(นาย|นางสาว|ด\.ช\.|ด\.ญ\.)\s*/, '').trim();
-      
-      if (name && name.length > 1 && !name.includes('ชื่อ') && !name.includes('นามสกุล') && !name.includes('Name')) {
-        // Firebase key-safe: replace . # $ [ ] /
-        const safeKey = name.replace(/[.#$\[\]\/]/g, '_');
-        result[room][safeKey] = { registered: false, phone: "" };
-      }
-    });
-    
-    // Merge with existing preview
-    try {
-      const existing = JSON.parse(document.getElementById('preview').value || '{}');
-      existing[room] = { ...existing[room], ...result[room] };
-      document.getElementById('preview').value = JSON.stringify(existing, null, 2);
-    } catch {
-      document.getElementById('preview').value = JSON.stringify(result, null, 2);
+
+      log(`⚡ แปลงรายชื่อที่วาง: เพิ่ม ${Object.keys(result[room]).length} คน ลงใน ${room}`);
+      document.getElementById('rawNames').value = '';
+    };
+
+    window.loadSampleData = function () {
+      const sample = {
+        "ปวช.1/1": {
+          "สมชาย ใจดี": { registered: false, phone: "" },
+          "สมหญิง รักเรียน": { registered: false, phone: "" },
+          "กิตติ พงศ์ภักดิ์": { registered: false, phone: "" },
+          "ปรีชา สุขใจ": { registered: false, phone: "" },
+          "วิภา แก้วมณี": { registered: false, phone: "" },
+          "อนุชา ศรีสวัสดิ์": { registered: false, phone: "" },
+          "ธนพล เจริญผล": { registered: false, phone: "" },
+          "นิรันดร์ ทองคำ": { registered: false, phone: "" }
+        },
+        "ปวช.1/2": {
+          "กมล วงศ์สกุล": { registered: false, phone: "" },
+          "ประภาส ดีงาม": { registered: false, phone: "" },
+          "สุรีย์ ภูมิพัฒน์": { registered: false, phone: "" },
+          "ทินกร แสงจันทร์": { registered: false, phone: "" },
+          "ชลธิชา น้ำใส": { registered: false, phone: "" },
+          "ภานุพงศ์ วิเศษ": { registered: false, phone: "" },
+          "ศิริพร มั่นคง": { registered: false, phone: "" },
+          "ณัฐวุฒิ กล้าหาญ": { registered: false, phone: "" }
+        },
+        "ปวช.1/3": {
+          "พิชิต ชนะศึก": { registered: false, phone: "" },
+          "กัลยา จิตงาม": { registered: false, phone: "" },
+          "ธวัชชัย มานะ": { registered: false, phone: "" },
+          "สุนิสา บุญล้อม": { registered: false, phone: "" },
+          "วรากร เก่งกาจ": { registered: false, phone: "" },
+          "อมรรัตน์ ศรีทอง": { registered: false, phone: "" },
+          "จักรพันธ์ เพียรทำ": { registered: false, phone: "" },
+          "มณีรัตน์ สมบูรณ์": { registered: false, phone: "" }
+        },
+        "ปวช.1/4": {
+          "กิตติพงษ์ ทรงพลัง": { registered: false, phone: "" },
+          "สายฝน ปรีดา": { registered: false, phone: "" },
+          "ชัยวัฒน์ เข้มแข็ง": { registered: false, phone: "" },
+          "พรพิมล สดใส": { registered: false, phone: "" },
+          "อัครพล ยิ่งใหญ่": { registered: false, phone: "" },
+          "รัตนาภรณ์ เพชรงาม": { registered: false, phone: "" },
+          "เกียรติศักดิ์ รุ่งเรือง": { registered: false, phone: "" },
+          "นภัสสร พิมลรัตน์": { registered: false, phone: "" }
+        }
+      };
+      document.getElementById('preview').value = JSON.stringify(sample, null, 2);
+      log('🧪 โหลดข้อมูลตัวอย่าง 4 ห้อง (ห้องละ 8 คน = 32 คน)');
+    };
+
+    window.clearAll = function () {
+      document.getElementById('preview').value = '';
+      log('🗑️ ล้างข้อมูลแล้ว');
+    };
+
+    function log(msg) {
+      const el = document.getElementById('log');
+      el.style.display = 'block';
+      el.textContent += (el.textContent ? '\n' : '') + `[${new Date().toLocaleTimeString('th-TH')}] ${msg}`;
+      el.scrollTop = el.scrollHeight;
     }
-    
-    log(`📄 อ่านไฟล์ ${file.name} (${encoding}): พบ ${Object.keys(result[room]).length} คน ใน ${room}`);
-  };
-  reader.readAsText(file, encoding);
-  input.value = '';
-};
-
-window.parseRawNames = function() {
-  const raw = document.getElementById('rawNames').value.trim();
-  if (!raw) { alert('กรุณาวางรายชื่อก่อนกดปุ่มครับ'); return; }
-  const room = document.getElementById('selRoom').value;
-  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
-  const result = {};
-  result[room] = {};
-  
-  lines.forEach(line => {
-    let name = line;
-    // Remove leading numbers
-    name = name.replace(/^\d+\s*\.?\s*/, '').trim();
-    name = name.replace(/^(นาย|นางสาว|ด\.ช\.|ด\.ญ\.)\s*/, '').trim();
-    
-    if (name && name.length > 1) {
-      const safeKey = name.replace(/[.#$\[\]\/]/g, '_');
-      result[room][safeKey] = { registered: false, phone: "" };
-    }
-  });
-  
-  try {
-    const existing = JSON.parse(document.getElementById('preview').value || '{}');
-    existing[room] = { ...existing[room], ...result[room] };
-    document.getElementById('preview').value = JSON.stringify(existing, null, 2);
-  } catch {
-    document.getElementById('preview').value = JSON.stringify(result, null, 2);
-  }
-  
-  log(`⚡ แปลงรายชื่อที่วาง: เพิ่ม ${Object.keys(result[room]).length} คน ลงใน ${room}`);
-  document.getElementById('rawNames').value = '';
-};
-
-window.loadSampleData = function() {
-  const sample = {
-    "ปวช.1/1": {
-      "สมชาย ใจดี": { registered: false, phone: "" },
-      "สมหญิง รักเรียน": { registered: false, phone: "" },
-      "กิตติ พงศ์ภักดิ์": { registered: false, phone: "" },
-      "ปรีชา สุขใจ": { registered: false, phone: "" },
-      "วิภา แก้วมณี": { registered: false, phone: "" },
-      "อนุชา ศรีสวัสดิ์": { registered: false, phone: "" },
-      "ธนพล เจริญผล": { registered: false, phone: "" },
-      "นิรันดร์ ทองคำ": { registered: false, phone: "" }
-    },
-    "ปวช.1/2": {
-      "กมล วงศ์สกุล": { registered: false, phone: "" },
-      "ประภาส ดีงาม": { registered: false, phone: "" },
-      "สุรีย์ ภูมิพัฒน์": { registered: false, phone: "" },
-      "ทินกร แสงจันทร์": { registered: false, phone: "" },
-      "ชลธิชา น้ำใส": { registered: false, phone: "" },
-      "ภานุพงศ์ วิเศษ": { registered: false, phone: "" },
-      "ศิริพร มั่นคง": { registered: false, phone: "" },
-      "ณัฐวุฒิ กล้าหาญ": { registered: false, phone: "" }
-    },
-    "ปวช.1/3": {
-      "พิชิต ชนะศึก": { registered: false, phone: "" },
-      "กัลยา จิตงาม": { registered: false, phone: "" },
-      "ธวัชชัย มานะ": { registered: false, phone: "" },
-      "สุนิสา บุญล้อม": { registered: false, phone: "" },
-      "วรากร เก่งกาจ": { registered: false, phone: "" },
-      "อมรรัตน์ ศรีทอง": { registered: false, phone: "" },
-      "จักรพันธ์ เพียรทำ": { registered: false, phone: "" },
-      "มณีรัตน์ สมบูรณ์": { registered: false, phone: "" }
-    },
-    "ปวช.1/4": {
-      "กิตติพงษ์ ทรงพลัง": { registered: false, phone: "" },
-      "สายฝน ปรีดา": { registered: false, phone: "" },
-      "ชัยวัฒน์ เข้มแข็ง": { registered: false, phone: "" },
-      "พรพิมล สดใส": { registered: false, phone: "" },
-      "อัครพล ยิ่งใหญ่": { registered: false, phone: "" },
-      "รัตนาภรณ์ เพชรงาม": { registered: false, phone: "" },
-      "เกียรติศักดิ์ รุ่งเรือง": { registered: false, phone: "" },
-      "นภัสสร พิมลรัตน์": { registered: false, phone: "" }
-    }
-  };
-  document.getElementById('preview').value = JSON.stringify(sample, null, 2);
-  log('🧪 โหลดข้อมูลตัวอย่าง 4 ห้อง (ห้องละ 8 คน = 32 คน)');
-};
-
-window.clearAll = function() {
-  document.getElementById('preview').value = '';
-  log('🗑️ ล้างข้อมูลแล้ว');
-};
-
-function log(msg) {
-  const el = document.getElementById('log');
-  el.style.display = 'block';
-  el.textContent += (el.textContent ? '\n' : '') + `[${new Date().toLocaleTimeString('th-TH')}] ${msg}`;
-  el.scrollTop = el.scrollHeight;
-}
-</script>
+  </script>
 </body>
+
 </html>

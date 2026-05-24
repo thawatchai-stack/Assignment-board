@@ -644,7 +644,19 @@
 
     <div class="toast" id="toast"></div>
 
-    <script>
+    <script type="module">
+
+        // ─── Supabase Setup ───────────────────────────────────
+        const _SP_URL = 'https://vdceebtdfiysopihxcgr.supabase.co';
+        const _SP_KEY = 'sb_publishable_mKWw9FNiiZN-V9kU7FUDvA_IFvGpFLu';
+        let supabase = null;
+
+        async function initSupabase() {
+            const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+            supabase = createClient(_SP_URL, _SP_KEY);
+        }
+        // ──────────────────────────────────────────────────────
+
         const challenges = [
             { week: 'WK 1', name: 'Safety Buddy Match', description: 'กิจกรรมละลายพฤติกรรมและการจับคู่บัดดี้ความปลอดภัย', stamp: '🤝' },
             { week: 'WK 2', name: 'Sign Hunter (LV.1)', description: 'การสำรวจและจำแนกประเภทป้ายความปลอดภัยเบื้องต้น', stamp: '🔍' },
@@ -748,7 +760,7 @@
             currentRank.textContent = rankText;
         }
 
-        function saveData() {
+        async function saveData() {
             const studentName = document.getElementById('studentName').value;
             const studentId = document.getElementById('studentId').value;
             const studentMajor = document.getElementById('studentMajor').value;
@@ -760,6 +772,7 @@
             }
 
             const data = {
+                id: studentId,
                 studentName,
                 studentId,
                 studentMajor,
@@ -767,11 +780,35 @@
                 completedChallenges: Array.from(completedChallenges)
             };
 
-            localStorage.setItem('safetyPassportData', JSON.stringify(data));
+            // Save to Supabase
+            if (supabase) {
+                const { error } = await supabase.from('safety_passport_local').upsert(data, { onConflict: 'id' });
+                if (error) {
+                    console.warn('Supabase save failed, falling back to localStorage:', error);
+                    localStorage.setItem('safetyPassportData', JSON.stringify(data));
+                }
+            } else {
+                localStorage.setItem('safetyPassportData', JSON.stringify(data));
+            }
             showToast('✅ บันทึกข้อมูลสำเร็จ!');
         }
 
-        function loadData() {
+        async function loadData() {
+            // Try Supabase first, fallback to localStorage
+            const savedId = localStorage.getItem('safetyPassportStudentId');
+            if (supabase && savedId) {
+                const { data, error } = await supabase.from('safety_passport_local').select('*').eq('id', savedId).maybeSingle();
+                if (data && !error) {
+                    document.getElementById('studentName').value = data.studentName || '';
+                    document.getElementById('studentId').value = data.studentId || '';
+                    document.getElementById('studentMajor').value = data.studentMajor || '';
+                    document.getElementById('safetyPartner').value = data.safetyPartner || '';
+                    completedChallenges = new Set(data.completedChallenges || []);
+                    renderChallenges();
+                    return;
+                }
+            }
+            // Fallback to localStorage
             const saved = localStorage.getItem('safetyPassportData');
             if (saved) {
                 const data = JSON.parse(saved);
@@ -790,6 +827,8 @@
             const studentMajor = document.getElementById('studentMajor').value;
             const safetyPartner = document.getElementById('safetyPartner').value;
 
+            if (studentId) localStorage.setItem('safetyPassportStudentId', studentId);
+
             const data = {
                 studentName,
                 studentId,
@@ -804,6 +843,7 @@
         function resetData() {
             if (confirm('คุณแน่ใจหรือไม่ที่จะรีเซ็ตข้อมูลทั้งหมด?')) {
                 localStorage.removeItem('safetyPassportData');
+                localStorage.removeItem('safetyPassportStudentId');
                 document.getElementById('studentName').value = '';
                 document.getElementById('studentId').value = '';
                 document.getElementById('studentMajor').value = '';
@@ -826,8 +866,9 @@
         }
 
         // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            loadData();
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initSupabase();
+            await loadData();
             renderChallenges();
         });
 

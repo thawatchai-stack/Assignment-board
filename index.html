@@ -251,12 +251,12 @@ body{font-family:'IBM Plex Sans Thai','Prompt',sans-serif;background:var(--dark)
                             <div class="booklet-photos">
                                 <div class="photo-slot">
                                     <div class="photo-slot-label">นักเรียน</div>
-                                    <div class="photo-box"><img id="dp-photo-stu" src=""><i class="fas fa-user" id="dp-stu-icon"></i></div>
+                                    <div class="photo-box"><img id="dp-photo-stu" src="" style="display:none;"><i class="fas fa-user" id="dp-stu-icon"></i></div>
                                     <div class="photo-slot-name" id="dp-name-stu">-</div>
                                 </div>
                                 <div class="photo-slot">
                                     <div class="photo-slot-label">คู่บัดดี้</div>
-                                    <div class="photo-box"><img id="dp-photo-bud" src=""><i class="fas fa-user-friends" id="dp-bud-icon"></i></div>
+                                    <div class="photo-box"><img id="dp-photo-bud" src="" style="display:none;"><i class="fas fa-user-friends" id="dp-bud-icon"></i></div>
                                     <div class="photo-slot-name" id="dp-name-bud">-</div>
                                 </div>
                             </div>
@@ -272,7 +272,7 @@ body{font-family:'IBM Plex Sans Thai','Prompt',sans-serif;background:var(--dark)
                             </div>
                             <div class="progress-line"><div class="progress-fill" id="dp-prog-fill"></div></div>
                             
-                            <div class="booklet-field"><div class="booklet-field-label">รหัสผู้ถือพาสปอร์ต</div><div class="booklet-field-val" id="dp-val-phone">-</div></div>
+                            <div class="booklet-field"><div class="booklet-field-label">เบอร์โทรศัพท์</div><div class="booklet-field-val" id="dp-val-phone">-</div></div>
                             <div class="booklet-field"><div class="booklet-field-label">ระดับชั้น</div><div class="booklet-field-val" id="dp-val-class">-</div></div>
                             <div class="booklet-field"><div class="booklet-field-label">วันที่ออกประจำตัว</div><div class="booklet-field-val" id="dp-val-date">-</div></div>
                         </div>
@@ -327,12 +327,12 @@ body{font-family:'IBM Plex Sans Thai','Prompt',sans-serif;background:var(--dark)
                             <div class="booklet-photos">
                                 <div class="photo-slot">
                                     <div class="photo-slot-label">นักเรียน</div>
-                                    <div class="photo-box"><img id="sp-photo-stu" src=""><i class="fas fa-user" id="sp-stu-icon"></i></div>
+                                    <div class="photo-box"><img id="sp-photo-stu" src="" style="display:none;"><i class="fas fa-user" id="sp-stu-icon"></i></div>
                                     <div class="photo-slot-name" id="sp-name-stu">-</div>
                                 </div>
                                 <div class="photo-slot">
                                     <div class="photo-slot-label">Safety Partner</div>
-                                    <div class="photo-box"><img id="sp-photo-bud" src=""><i class="fas fa-user-shield" id="sp-bud-icon"></i></div>
+                                    <div class="photo-box"><img id="sp-photo-bud" src="" style="display:none;"><i class="fas fa-user-shield" id="sp-bud-icon"></i></div>
                                     <div class="photo-slot-name" id="sp-name-bud">-</div>
                                 </div>
                             </div>
@@ -348,7 +348,7 @@ body{font-family:'IBM Plex Sans Thai','Prompt',sans-serif;background:var(--dark)
                             </div>
                             <div class="progress-line"><div class="progress-fill" id="sp-prog-fill"></div></div>
                             
-                            <div class="booklet-field"><div class="booklet-field-label">รหัสผู้ถือพาสปอร์ต</div><div class="booklet-field-val" id="sp-val-phone">-</div></div>
+                            <div class="booklet-field"><div class="booklet-field-label">เบอร์โทรศัพท์</div><div class="booklet-field-val" id="sp-val-phone">-</div></div>
                             <div class="booklet-field"><div class="booklet-field-label">ระดับชั้น</div><div class="booklet-field-val" id="sp-val-class">-</div></div>
                             <div class="booklet-field"><div class="booklet-field-label">วันที่ออกประจำตัว</div><div class="booklet-field-val" id="sp-val-date">-</div></div>
                         </div>
@@ -619,31 +619,134 @@ body{font-family:'IBM Plex Sans Thai','Prompt',sans-serif;background:var(--dark)
     </div>
 </div>
 
+<!-- Modal for Link Attachment Input -->
+<div class="assignment-list-modal" id="modalLinkInput">
+    <div class="modal-content" style="max-width: 420px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--glass); backdrop-filter: blur(12px);">
+        <div class="modal-header" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="color:#fff; display:flex; align-items:center; gap:8px; margin: 0; font-family: 'Prompt', sans-serif; font-size: 1.2rem;"><i class="fas fa-link" style="color:var(--primary)"></i> แนบลิงก์ส่งงาน</h3>
+            <button style="background:none;border:none;color:var(--text2);font-size:1.2rem;cursor:pointer" onclick="closeLinkInputModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body" style="padding: 16px 0 8px 0; font-family: 'IBM Plex Sans Thai', sans-serif;">
+            <p style="color:var(--text2); font-size:0.9rem; margin-bottom:16px; line-height:1.5;">
+                วางลิงก์ (URL) ของงานของคุณ เช่น Google Drive, Canva, YouTube หรือลิงก์ไฟล์งานอื่นๆ ลงในช่องด้านล่างนี้:
+            </p>
+            <div style="margin-bottom:16px;">
+                <input type="text" id="largeFileUrlInput" placeholder="https://drive.google.com/..." 
+                       style="width:100%; padding:12px 14px; border-radius: 8px; background:rgba(0,0,0,0.3); border:1px solid var(--border); color:#fff; font-size:0.95rem; outline:none; transition: all 0.2s; box-sizing: border-box;"
+                       onfocus="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 0 0 3px rgba(20,184,166,0.15)';"
+                       onblur="this.style.borderColor='var(--border)'; this.style.boxShadow='none';"
+                       onkeydown="if(event.key === 'Enter') submitLargeFileLink()">
+            </div>
+            <div style="background:rgba(251,191,36,0.06); border:1px solid rgba(251,191,36,0.15); border-radius:8px; padding:10px 12px; color:#fbbf24; font-size:0.8rem; line-height:1.5; display:flex; align-items:flex-start; gap:8px;">
+                <i class="fas fa-info-circle" style="margin-top:3px; flex-shrink: 0;"></i>
+                <span><b>ข้อแนะนำสำหรับนักเรียน:</b> หากเป็นลิงก์ Google Drive หรือ Canva อย่าลืมตั้งค่าแชร์ให้ <b>"ทุกคนที่มีลิงก์สามารถดูได้" (Anyone with the link can view)</b> ด้วยนะครับ คุณครูถึงจะเปิดดูและตรวจให้คะแนนได้ครับ</span>
+            </div>
+        </div>
+        <div style="display:flex; gap:12px; margin-top:16px; border-top:1px solid var(--border); padding-top:16px; width: 100%;">
+            <button class="btn btn-primary" onclick="submitLargeFileLink()" style="flex:1; height:42px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:8px; border-radius: 8px; border: none; cursor: pointer;">
+                <i class="fas fa-check"></i> บันทึกลิงก์
+            </button>
+            <button class="btn" onclick="closeLinkInputModal()" style="flex:1; height:42px; background:rgba(255,255,255,0.06); border:1px solid var(--border); color:var(--text); border-radius: 8px; cursor: pointer; font-weight: 600; display:flex; align-items:center; justify-content:center;">
+                ยกเลิก
+            </button>
+        </div>
+    </div>
+</div>
+
 <div class="toast-msg" id="toastMsg">
     <i class="fas fa-check-circle" style="color:var(--primary)" id="toastIcon"></i>
     <span id="toastText">บันทึกเรียบร้อย</span>
 </div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getDatabase, ref, set, get, update, onValue, push, query, orderByChild, equalTo } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+// Supabase client initialization — works for both file:// and http://
+const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+const supabaseUrl = 'https://vdceebtdfiysopihxcgr.supabase.co';
+const supabaseAnonKey = 'sb_publishable_mKWw9FNiiZN-V9kU7FUDvA_IFvGpFLu';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-const firebaseConfig = {
-  apiKey: "AIzaSyDgXrAED1vXW9dhe6yEIV8kaUXBF8iAsIU",
-  authDomain: "prates-ea840.firebaseapp.com",
-  databaseURL: "https://prates-ea840-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "prates-ea840",
-  storageBucket: "prates-ea840.appspot.com",
-  messagingSenderId: "464798792570",
-  appId: "1:464798792570:web:39954e2ef16f2ed049b4c3"
-};
+/* Helper functions mimicking Firebase API (simplified) */
+const db = null; // placeholder — not used, Supabase client is used directly
+function ref(dbOrPath, path) { return path !== undefined ? path : dbOrPath; }
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
-const storage = getStorage(app);
+async function get(path) {
+  const parts = path.split('/');
+  const table = parts[0];
+  const id = parts[1];
+  const pkCol = (table === 'passports' || table === 'safety_passports' || table === 'passport_photos') ? 'phone' : 'id';
+  const { data, error } = await supabase.from(table).select('*').eq(pkCol, id).maybeSingle();
+  if (error) return { exists: () => false, val: () => null, error };
+  return { exists: () => !!data, val: () => data ? parsePassportData(table, data) : null, error: null };
+}
+
+// Normalise Supabase snake_case → camelCase for passport data
+function parsePassportData(table, row) {
+  if (!row) return row;
+  if (table === 'passports' || table === 'safety_passports') {
+    return {
+      ...row,
+      firstName: row.first_name,
+      lastName: row.last_name,
+      className: row.class_name,
+      teamName: row.team_name,
+      dateJoined: row.date_joined,
+      musicChancesUsed: row.music_chances_used,
+      historyClearedAt: row.history_cleared_at,
+      buddy: typeof row.buddy === 'string' ? tryParseJSON(row.buddy) : row.buddy,
+      history: typeof row.history === 'string' ? tryParseJSON(row.history) : row.history,
+      challenges: typeof row.challenges === 'string' ? tryParseJSON(row.challenges) : row.challenges,
+    };
+  }
+  if (table === 'passport_photos') {
+    return {
+      student: row.student_url,
+      buddy: row.buddy_url
+    };
+  }
+  return row;
+}
+
+function tryParseJSON(str) {
+  try { return JSON.parse(str); } catch { return str; }
+}
+
+async function set(path, value) {
+  const parts = path.split('/');
+  const table = parts[0];
+  const id = parts[1];
+  const payload = { id, ...value };
+  const { error } = await supabase.from(table).upsert(payload, { onConflict: 'id' });
+  if (error) throw error;
+}
+
+async function update(path, updates) {
+  const parts = path.split('/');
+  const table = parts[0];
+  const id = parts[1];
+  const pkCol = (table === 'passports' || table === 'safety_passports' || table === 'passport_photos') ? 'phone' : 'id';
+  // Map camelCase to snake_case for Supabase columns
+  const mapped = {};
+  const keyMap = {
+    teamName: 'team_name', buddy: 'buddy', history: 'history', challenges: 'challenges',
+    points: 'points', reflection: 'reflection', historyClearedAt: 'history_cleared_at',
+    music_chances_used: 'music_chances_used', student: 'student_url', buddyUrl: 'buddy_url'
+  };
+  for (const [k, v] of Object.entries(updates)) {
+    const col = keyMap[k] || k;
+    mapped[col] = (typeof v === 'object' && v !== null && !Array.isArray(v)) ? JSON.stringify(v) : v;
+    if (Array.isArray(v)) mapped[col] = JSON.stringify(v);
+  }
+  const { error } = await supabase.from(table).update(mapped).eq(pkCol, id);
+  if (error) throw error;
+}
+
+async function push(tableName, payload) {
+  const { error } = await supabase.from(tableName).insert(payload);
+  if (error) throw error;
+}
+
+function onValue() { /* Real-time listeners can be added later if needed */ }
+
 
 function promiseWithTimeout(promise, ms, timeoutError = new Error('Timeout')) {
     return Promise.race([
@@ -678,11 +781,8 @@ let spPageIndex = 1;
 let dpChart = null;
 let spChart = null;
 
-signInAnonymously(auth).then(() => {
-    isAuthReady = true;
-    console.log("🔐 Student Anonymously Logged In");
-    checkLocalSession();
-}).catch(err => alert("ข้อผิดพลาดเชื่อมต่อ Firebase: " + err.message));
+isAuthReady = true;
+checkLocalSession();
 
 function showToast(msg, isSuccess = true) {
     const el = document.getElementById('toastMsg');
@@ -719,118 +819,122 @@ window.loadClassroomNames = async function() {
         nameSelect.innerHTML = '<option value="">-- เลือกห้องเรียนก่อน --</option>';
         return;
     }
-    
     try {
-        const safeRoom = room.replace(/[.#$\[\]\/]/g, '_');
-        const snap = await get(ref(db, `students_master/${safeRoom}`));
-        if (!snap.exists()) {
+        const { data, error } = await supabase
+            .from('students_master')
+            .select('phone, first_name, last_name, registered')
+            .eq('classroom', room)
+            .order('first_name', { ascending: true });
+        if (error) {
+            console.error('Supabase error:', error.message, error.details, error.hint, error.code);
+            nameSelect.innerHTML = `<option value="">-- ผิดพลาด: ${error.message} --</option>`;
+            return;
+        }
+        if (!data || data.length === 0) {
             nameSelect.innerHTML = '<option value="">-- ไม่มีรายชื่อในห้องนี้ --</option>';
             return;
         }
-        const data = snap.val();
         let options = '<option value="">-- เลือกชื่อจริงของคุณ --</option>';
-        Object.keys(data).forEach(key => {
-            const student = data[key];
+        data.forEach(student => {
             if (!student.registered) {
-                options += `<option value="${key}">${key.replace(/_/g, ' ')}</option>`;
+                const fullName = (student.first_name + ' ' + (student.last_name || '')).trim();
+                options += `<option value="${student.phone}">${fullName}</option>`;
             }
         });
         nameSelect.innerHTML = options;
     } catch(e) {
         nameSelect.innerHTML = '<option value="">-- เกิดข้อผิดพลาดโหลดรายชื่อ --</option>';
+        console.error('loadClassroomNames exception:', e.message || e);
     }
 };
 
 window.doRegister = async function() {
     const room = document.getElementById('regClassroom').value;
-    const keyName = document.getElementById('regName').value;
-    const phone = document.getElementById('regPhone').value.trim();
+    const selectedPhone = document.getElementById('regName').value; // value is student phone
+    const inputPhone = document.getElementById('regPhone').value.trim();
     
-    if (!room || !keyName || !phone) {
+    if (!room || !selectedPhone || !inputPhone) {
         showToast('กรุณากรอกข้อมูลให้ครบถ้วนครับ', false);
         return;
     }
-    if (phone.length < 9) {
+    if (inputPhone.length < 9) {
         showToast('กรุณากรอกเบอร์โทรที่ถูกต้องครับ', false);
         return;
     }
     
     try {
-        const safeRoom = room.replace(/[.#$\[\]\/]/g, '_');
-        // Double check student isn't already registered
-        const masterSnap = await get(ref(db, `students_master/${safeRoom}/${keyName}`));
-        if (masterSnap.exists() && masterSnap.val().registered) {
+        // Fetch the student row by the selected phone (pre-registered by teacher)
+        const { data: stuData, error: stuErr } = await supabase
+            .from('students_master')
+            .select('*')
+            .eq('phone', selectedPhone)
+            .single();
+        if (stuErr || !stuData) {
+            showToast('ไม่พบข้อมูลนักเรียนในระบบ', false);
+            return;
+        }
+        if (stuData.registered) {
             showToast('รายชื่อนี้มีผู้ลงทะเบียนแล้วครับ', false);
             return;
         }
         
-        // Double check phone number isn't in use
-        const phoneSnap = await get(ref(db, `users/${phone}`));
-        if (phoneSnap.exists()) {
-            showToast('เบอร์โทรศัพท์นี้ถูกใช้งานแล้วครับ', false);
-            return;
-        }
+        // Cannot update PK (phone) directly — delete old TEMP row, insert new with real phone
+        const { error: delErr } = await supabase
+            .from('students_master')
+            .delete()
+            .eq('phone', selectedPhone);
+        if (delErr) throw delErr;
+
+        const { error: insErr } = await supabase
+            .from('students_master')
+            .insert({
+                phone: inputPhone,
+                first_name: stuData.first_name,
+                last_name: stuData.last_name || '',
+                classroom: stuData.classroom,
+                registered: true
+            });
+        if (insErr) throw insErr;
         
-        // Create user session
+        const fullName = (stuData.first_name + ' ' + (stuData.last_name || '')).trim();
+        
+        // Create user session object — use inputPhone as the real login phone
         const studentInfo = {
-            name: keyName.replace(/_/g, ' '),
+            name: fullName,
             classroom: room,
-            phone: phone,
+            phone: inputPhone,
             registeredAt: Date.now()
         };
         
-        await set(ref(db, `users/${phone}`), studentInfo);
-        await update(ref(db, `students_master/${safeRoom}/${keyName}`), {
-            registered: true,
-            phone: phone
-        });
-        
-        // Initialize 2 subject passports!
-        const initDrawing = {
-            firstName: studentInfo.name.split(' ')[0] || '',
-            lastName: studentInfo.name.split(' ')[1] || '',
-            className: room,
-            phone: phone,
+        // Initialize 2 subject passports in Supabase
+        const passportBase = {
+            id: inputPhone,
+            first_name: stuData.first_name,
+            last_name: stuData.last_name || '',
+            class_name: room,
+            phone: inputPhone,
             points: 0,
-            history: [{
-                type: 'plus',
-                amount: 0,
-                reason: 'สร้างบัญชีพาสปอร์ตสำหรับสะสมแต้มเขียนแบบ',
+            history: JSON.stringify([{
+                type: 'plus', amount: 0,
+                reason: 'สร้างบัญชีพาสปอร์ต',
                 date: new Date().toLocaleDateString('th-TH')
-            }],
-            challenges: {},
+            }]),
+            challenges: JSON.stringify({}),
             reflection: '',
-            dateJoined: new Date().toISOString(),
-            teamName: '',
-            photoUrl: ''
+            date_joined: new Date().toISOString(),
+            team_name: ''
         };
         
-        const initSafety = {
-            firstName: studentInfo.name.split(' ')[0] || '',
-            lastName: studentInfo.name.split(' ')[1] || '',
-            className: room,
-            phone: phone,
-            points: 0,
-            history: [{
-                type: 'plus',
-                amount: 0,
-                reason: 'สร้างบัญชีพาสปอร์ตสำหรับสะสมแต้มความปลอดภัย',
-                date: new Date().toLocaleDateString('th-TH')
-            }],
-            challenges: {},
-            reflection: '',
-            dateJoined: new Date().toISOString(),
-            teamName: '',
-            photoUrl: ''
-        };
-        
-        await set(ref(db, `passports/${phone}`), initDrawing);
-        await set(ref(db, `safety_passports/${phone}`), initSafety);
+        const { error: dpErr } = await supabase.from('passports').upsert(passportBase, { onConflict: 'id' });
+        if (dpErr) throw dpErr;
+        const { error: spErr } = await supabase.from('safety_passports').upsert(passportBase, { onConflict: 'id' });
+        if (spErr) throw spErr;
         
         showToast('ลงทะเบียนบัญชีสำเร็จ! ยินดีต้อนรับครับ');
         loginSuccess(studentInfo);
     } catch(e) {
         showToast('เกิดข้อผิดพลาดในการลงทะเบียน: ' + e.message, false);
+        console.error(e);
     }
 };
 
@@ -840,18 +944,31 @@ window.doLogin = async function() {
         showToast('กรุณากรอกเบอร์โทรศัพท์ด้วยครับ', false);
         return;
     }
-    
     try {
-        const snap = await get(ref(db, `users/${phone}`));
-        if (!snap.exists()) {
+        const { data: stuData, error } = await supabase
+            .from('students_master')
+            .select('*')
+            .eq('phone', phone)
+            .single();
+        if (error || !stuData) {
             showToast('ไม่พบเบอร์โทรศัพท์นี้ในระบบ', false);
             return;
         }
-        const studentInfo = snap.val();
+        if (!stuData.registered) {
+            showToast('บัญชีนี้ยังไม่ได้ลงทะเบียน กรุณาลงทะเบียนก่อนครับ', false);
+            return;
+        }
+        const fullName = (stuData.first_name + ' ' + (stuData.last_name || '')).trim();
+        const studentInfo = {
+            name: fullName,
+            classroom: stuData.classroom,
+            phone: stuData.phone
+        };
         showToast('เข้าสู่ระบบสำเร็จ! สวัสดีครับ');
         loginSuccess(studentInfo);
     } catch(e) {
         showToast('เกิดข้อผิดพลาดในการเข้าสู่ระบบ', false);
+        console.error(e);
     }
 };
 
@@ -906,7 +1023,7 @@ async function loadProfileDetails() {
     try {
         await loadProfileClassmates();
         
-        const snap = await get(ref(db, `passports/${studentUser.phone}`));
+        const snap = await get(`passports/${studentUser.phone}`);
         if (snap.exists()) {
             const p = snap.val();
             document.getElementById('profTeamName').value = p.teamName || '';
@@ -939,7 +1056,7 @@ async function loadProfileDetails() {
         }
         
         // Load Photos from passport_photos
-        const photoSnap = await get(ref(db, `passport_photos/${studentUser.phone}`));
+        const photoSnap = await get(`passport_photos/${studentUser.phone}`);
         if (photoSnap.exists()) {
             studentPhotosCache = photoSnap.val();
             const ph = studentPhotosCache;
@@ -1021,57 +1138,41 @@ window.saveProfileChanges = async function() {
         const uploadPromises = [];
         
         if (studentPhoto && studentPhoto.startsWith('data:image')) {
-            if (isStorageOffline) {
-                console.log("Firebase Storage is marked offline, skipping student photo upload and using base64.");
-                photosPayload.student = studentPhoto;
-            } else {
-                uploadPromises.push((async () => {
-                    try {
-                        const blob = dataURLtoBlob(studentPhoto);
-                        const fileRef = storageRef(storage, `profile_photos/${studentUser.phone}_student.jpg`);
-                        await promiseWithTimeout(
-                            (async () => {
-                                await uploadBytes(fileRef, blob);
-                                studentPhotoUrl = await getDownloadURL(fileRef);
-                            })(),
-                            2500,
-                            new Error("Student photo upload timeout")
-                        );
-                        photosPayload.student = studentPhotoUrl;
-                    } catch (uploadErr) {
-                        console.warn("Student profile photo upload failed, using base64 fallback:", uploadErr);
-                        isStorageOffline = true;
-                        photosPayload.student = studentPhoto;
-                    }
-                })());
-            }
+            uploadPromises.push((async () => {
+                try {
+                    const blob = dataURLtoBlob(studentPhoto);
+                    const fileName = `${studentUser.phone}_student.jpg`;
+                    const { data, error } = await supabase.storage.from('profile_photos').upload(fileName, blob, {
+                        cacheControl: '3600',
+                        upsert: true
+                    });
+                    if (error) throw error;
+                    const { data: publicUrlData } = supabase.storage.from('profile_photos').getPublicUrl(fileName);
+                    photosPayload.student = publicUrlData.publicUrl;
+                } catch (uploadErr) {
+                    console.warn("Student profile photo upload failed, using base64 fallback:", uploadErr);
+                    photosPayload.student = studentPhoto;
+                }
+            })());
         }
         
         if (buddyPhoto && buddyPhoto.startsWith('data:image')) {
-            if (isStorageOffline) {
-                console.log("Firebase Storage is marked offline, skipping buddy photo upload and using base64.");
-                photosPayload.buddy = buddyPhoto;
-            } else {
-                uploadPromises.push((async () => {
-                    try {
-                        const blob = dataURLtoBlob(buddyPhoto);
-                        const fileRef = storageRef(storage, `profile_photos/${studentUser.phone}_buddy.jpg`);
-                        await promiseWithTimeout(
-                            (async () => {
-                                await uploadBytes(fileRef, blob);
-                                buddyPhotoUrl = await getDownloadURL(fileRef);
-                            })(),
-                            2500,
-                            new Error("Buddy photo upload timeout")
-                        );
-                        photosPayload.buddy = buddyPhotoUrl;
-                    } catch (uploadErr) {
-                        console.warn("Buddy profile photo upload failed, using base64 fallback:", uploadErr);
-                        isStorageOffline = true;
-                        photosPayload.buddy = buddyPhoto;
-                    }
-                })());
-            }
+            uploadPromises.push((async () => {
+                try {
+                    const blob = dataURLtoBlob(buddyPhoto);
+                    const fileName = `${studentUser.phone}_buddy.jpg`;
+                    const { data, error } = await supabase.storage.from('profile_photos').upload(fileName, blob, {
+                        cacheControl: '3600',
+                        upsert: true
+                    });
+                    if (error) throw error;
+                    const { data: publicUrlData } = supabase.storage.from('profile_photos').getPublicUrl(fileName);
+                    photosPayload.buddy = publicUrlData.publicUrl;
+                } catch (uploadErr) {
+                    console.warn("Buddy profile photo upload failed, using base64 fallback:", uploadErr);
+                    photosPayload.buddy = buddyPhoto;
+                }
+            })());
         }
         
         if (uploadPromises.length > 0) {
@@ -1079,7 +1180,12 @@ window.saveProfileChanges = async function() {
         }
         
         if (Object.keys(photosPayload).length > 0) {
-            await update(ref(db, `passport_photos/${studentUser.phone}`), photosPayload);
+            // Upsert into passport_photos table
+            const photoRow = { phone: studentUser.phone };
+            if (photosPayload.student) photoRow.student_url = photosPayload.student;
+            if (photosPayload.buddy) photoRow.buddy_url = photosPayload.buddy;
+            const { error: photoErr } = await supabase.from('passport_photos').upsert(photoRow, { onConflict: 'phone' });
+            if (photoErr) throw photoErr;
             if (!studentPhotosCache) studentPhotosCache = {};
             Object.assign(studentPhotosCache, photosPayload);
         }
@@ -1096,8 +1202,8 @@ window.saveProfileChanges = async function() {
         const drawingUpdate = { teamName, buddy };
         const safetyUpdate = { teamName, buddy };
         
-        await update(ref(db, `passports/${studentUser.phone}`), drawingUpdate);
-        await update(ref(db, `safety_passports/${studentUser.phone}`), safetyUpdate);
+        await update(`passports/${studentUser.phone}`, drawingUpdate);
+        await update(`safety_passports/${studentUser.phone}`, safetyUpdate);
         
         showToast('💾 อัปเดตข้อมูลโปรไฟล์และบัดดี้เรียบร้อยครับ!');
         // Reload passports
@@ -1118,27 +1224,26 @@ let lastConfirmedBuddyName = "";
 async function loadProfileClassmates() {
     if (!studentUser) return;
     try {
-        const safeRoom = studentUser.classroom.replace(/[.#$\[\]\/]/g, '_');
-        const snap = await get(ref(db, `students_master/${safeRoom}`));
         const buddySelect = document.getElementById('profBuddyName');
-        buddySelect.innerHTML = '<option value="">-- ไม่มีบัดดี้ / ไม่ระบุ --</option>';
+        const { data, error } = await supabase
+            .from('students_master')
+            .select('phone, first_name, last_name')
+            .eq('classroom', studentUser.classroom)
+            .order('first_name', { ascending: true });
         
-        if (snap.exists()) {
-            classroomClassmatesList = snap.val();
-            let options = '<option value="">-- ไม่มีบัดดี้ / ไม่ระบุ --</option>';
-            Object.keys(classroomClassmatesList).forEach(key => {
-                const realName = key.replace(/_/g, ' ');
-                if (realName.trim() !== studentUser.name.trim()) {
-                    options += `<option value="${realName}">${realName}</option>`;
+        let options = '<option value="">-- ไม่มีบัดดี้ / ไม่ระบุ --</option>';
+        if (!error && data && data.length > 0) {
+            classroomClassmatesList = {};
+            data.forEach(s => {
+                const fullName = (s.first_name + ' ' + (s.last_name || '')).trim();
+                classroomClassmatesList[fullName] = s;
+                if (fullName !== studentUser.name.trim()) {
+                    options += `<option value="${fullName}">${fullName}</option>`;
                 }
             });
-            options += '<option value="__custom__">✍️ ระบุชื่อด้วยตนเอง (พิมพ์ชื่อเอง)</option>';
-            buddySelect.innerHTML = options;
-        } else {
-            let options = '<option value="">-- ไม่มีบัดดี้ / ไม่ระบุ --</option>';
-            options += '<option value="__custom__">✍️ ระบุชื่อด้วยตนเอง (พิมพ์ชื่อเอง)</option>';
-            buddySelect.innerHTML = options;
         }
+        options += '<option value="__custom__">✍️ ระบุชื่อด้วยตนเอง (พิมพ์ชื่อเอง)</option>';
+        buddySelect.innerHTML = options;
     } catch (e) {
         console.error("Error loading classmates for profile:", e);
     }
@@ -1178,7 +1283,7 @@ window.onBuddySelectedChange = function() {
         if (classmateData) {
             if (classmateData.phone) {
                 document.getElementById('profBuddyPhone').value = classmateData.phone;
-                get(ref(db, `passports/${classmateData.phone}`)).then(snap => {
+                get(`passports/${classmateData.phone}`).then(snap => {
                     if (snap.exists()) {
                         const p = snap.val();
                         if (p.firstName) {
@@ -1209,12 +1314,20 @@ window.cancelBuddySelection = function() {
 // ────────────────────────────────────────────────────────────────
 
 let allStudentBoards = {};
-function listenToStudentBoards() {
+async function listenToStudentBoards() {
     if (!studentUser) return;
-    onValue(ref(db, 'boards_index'), (snap) => {
-        allStudentBoards = snap.exists() ? snap.val() : {};
-        renderStudentBoards();
-    });
+    try {
+        const { data, error } = await supabase.from('boards_index').select('*');
+        if (error) throw error;
+        allStudentBoards = {};
+        if (data && data.length > 0) {
+            data.forEach(b => { allStudentBoards[b.id] = b; });
+        }
+    } catch(e) {
+        allStudentBoards = {};
+        console.error('Error loading boards:', e);
+    }
+    renderStudentBoards();
 }
 
 function renderStudentBoards() {
@@ -1227,12 +1340,12 @@ function renderStudentBoards() {
     
     grid.innerHTML = ids.map(id => {
         const b = allStudentBoards[id];
-        const sub = b.subjectType || 'general';
+        const sub = b.subject_type || b.subjectType || 'general';
         const subName = sub === 'drawing' ? 'เขียนแบบเทคนิคเบื้องต้น' : (sub === 'safety' ? 'ความปลอดภัย' : 'ทั่วไป');
         
         return `<div class="board-card" onclick="openBoardAssignments('${id}')">
             <div class="board-name">${b.name} <span class="board-subject-badge bsb-${sub}">${subName}</span></div>
-            <div class="board-owner"><i class="fas fa-user-circle"></i> ครูผู้สอน: ${b.createdBy || 'ทั่วไป'}</div>
+            <div class="board-owner"><i class="fas fa-user-circle"></i> ครูผู้สอน: ${b.created_by || b.createdBy || 'ทั่วไป'}</div>
         </div>`;
     }).join('');
 }
@@ -1244,9 +1357,14 @@ let activeAssignmentIndex = 0;
 window.openBoardAssignments = async function(boardId) {
     activeBoardId = boardId;
     try {
-        const snap = await get(ref(db, `boards/${boardId}`));
-        if (!snap.exists()) return;
-        const b = snap.val();
+        const { data: boardRow, error: boardErr } = await supabase.from('boards_index').select('*').eq('id', boardId).maybeSingle();
+        if (boardErr || !boardRow) return;
+        const b = { ...boardRow };
+        // Parse classrooms from JSONB
+        if (typeof b.classrooms === 'string') {
+            try { b.classrooms = JSON.parse(b.classrooms); } catch { b.classrooms = []; }
+        }
+        if (!b.classrooms) b.classrooms = [];
         
         document.getElementById('boardModalTitle').innerText = b.name;
         
@@ -1306,9 +1424,13 @@ window.openSubmitWork = async function(asgnIndex) {
     postLargeFileLink = null;
     
     try {
-        const snap = await get(ref(db, `boards/${activeBoardId}`));
-        if (!snap.exists()) return;
-        const b = snap.val();
+        const { data: boardRow, error: boardErr } = await supabase.from('boards_index').select('*').eq('id', activeBoardId).maybeSingle();
+        if (boardErr || !boardRow) return;
+        const b = { ...boardRow };
+        if (typeof b.classrooms === 'string') {
+            try { b.classrooms = JSON.parse(b.classrooms); } catch { b.classrooms = []; }
+        }
+        if (!b.classrooms) b.classrooms = [];
         const a = b.classrooms[activeClassroomIndex].assignments[asgnIndex];
         
         const container = document.getElementById('boardModalBody');
@@ -1322,7 +1444,7 @@ window.openSubmitWork = async function(asgnIndex) {
         
         if (studentPost && studentPost.attachments) {
             studentPost.attachments.forEach(att => {
-                if (att.startsWith('data:image') || att.includes('firebasestorage.googleapis.com')) {
+                if (att && att.startsWith('data:')) {
                     postFilesBase64.push(att);
                 } else {
                     postLargeFileLink = att;
@@ -1336,7 +1458,7 @@ window.openSubmitWork = async function(asgnIndex) {
             if (studentPost.attachments && studentPost.attachments.length > 0) {
                 fileHtml += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">';
                 studentPost.attachments.forEach(att => {
-                    if (att.startsWith('data:image') || att.includes('firebasestorage.googleapis.com')) {
+                    if (att && att.startsWith('data:')) {
                         fileHtml += `<img src="${att}" style="max-width:100%;max-height:100px;border-radius:6px;border:1px solid var(--border);">`;
                     } else {
                         fileHtml += `<a href="${att}" target="_blank" class="btn-link-action" style="font-size:0.75rem;color:#818cf8;display:block;"><i class="fas fa-external-link-alt"></i> เปิดไฟล์แนบใหญ่</a>`;
@@ -1442,11 +1564,34 @@ window.triggerPostCameraFile = function() {
 };
 
 window.promptLargeFile = function() {
-    const link = prompt("วาง URL ลิงก์ไฟล์งานขนาดใหญ่ของคุณ (เช่น Google Drive, YouTube, etc.)");
-    if (link) {
-        postLargeFileLink = link;
+    const modal = document.getElementById('modalLinkInput');
+    const input = document.getElementById('largeFileUrlInput');
+    if (modal && input) {
+        input.value = postLargeFileLink || '';
+        modal.classList.add('active');
+        setTimeout(() => input.focus(), 100);
+    }
+};
+
+window.closeLinkInputModal = function() {
+    const modal = document.getElementById('modalLinkInput');
+    if (modal) {
+        modal.classList.remove('active');
+    }
+};
+
+window.submitLargeFileLink = function() {
+    const input = document.getElementById('largeFileUrlInput');
+    if (input) {
+        const link = input.value.trim();
+        if (link) {
+            postLargeFileLink = link;
+        } else {
+            postLargeFileLink = null;
+        }
         renderPostImgPreview();
     }
+    closeLinkInputModal();
 };
 
 window.removeLargeFileLink = function() {
@@ -1616,28 +1761,19 @@ window.submitPost = async function() {
         // Upload images in parallel to bypass sequential latency and timeouts
         const uploadPromises = postFilesBase64.map(async (att, i) => {
             if (att.startsWith('data:image')) {
-                if (isStorageOffline) {
-                    console.log("Firebase Storage is marked offline, skipping assignment photo upload and using base64.");
+                try {
+                    const blob = dataURLtoBlob(att);
+                    const fileName = `${activeBoardId}/${studentUser.phone}_${Date.now()}_${i}.jpg`;
+                    const { data, error } = await supabase.storage.from('assignments').upload(fileName, blob, {
+                        cacheControl: '3600',
+                        upsert: true
+                    });
+                    if (error) throw error;
+                    const { data: publicUrlData } = supabase.storage.from('assignments').getPublicUrl(fileName);
+                    return publicUrlData.publicUrl;
+                } catch (uploadErr) {
+                    console.warn("Assignment photo upload failed, using base64 fallback:", uploadErr);
                     return att;
-                } else {
-                    try {
-                        const blob = dataURLtoBlob(att);
-                        const fileRef = storageRef(storage, `assignments/${activeBoardId}/${studentUser.phone}_${Date.now()}_${i}.jpg`);
-                        let downloadUrl = att;
-                        await promiseWithTimeout(
-                            (async () => {
-                                await uploadBytes(fileRef, blob);
-                                downloadUrl = await getDownloadURL(fileRef);
-                            })(),
-                            2500,
-                            new Error("Assignment photo upload timeout")
-                        );
-                        return downloadUrl;
-                    } catch (uploadErr) {
-                        console.warn("Firebase Storage upload failed, using compressed base64 fallback:", uploadErr);
-                        isStorageOffline = true;
-                        return att;
-                    }
                 }
             } else {
                 return att;
@@ -1650,17 +1786,17 @@ window.submitPost = async function() {
             uploadedAttachments.push(postLargeFileLink);
         }
         
-        // Fetch only the posts array to prevent race conditions and massive payload sizes
-        const postsRef = ref(db, `boards/${activeBoardId}/classrooms/${activeClassroomIndex}/assignments/${activeAssignmentIndex}/posts`);
-        const postsSnap = await get(postsRef);
+        // Load the full board data to update posts in the classrooms JSONB
+        const { data: boardRow, error: boardErr } = await supabase.from('boards_index').select('*').eq('id', activeBoardId).maybeSingle();
+        if (boardErr || !boardRow) throw new Error('ไม่พบข้อมูลบอร์ด');
         
-        let posts = [];
-        if (postsSnap.exists()) {
-            posts = postsSnap.val();
-            if (!Array.isArray(posts)) {
-                posts = Object.values(posts);
-            }
+        let classrooms = boardRow.classrooms;
+        if (typeof classrooms === 'string') {
+            try { classrooms = JSON.parse(classrooms); } catch { classrooms = []; }
         }
+        if (!classrooms) classrooms = [];
+        
+        let posts = classrooms[activeClassroomIndex]?.assignments?.[activeAssignmentIndex]?.posts || [];
         
         const idx = posts.findIndex(p => p && p.studentPhone === studentUser.phone);
         let isGradedStatus = false;
@@ -1690,9 +1826,17 @@ window.submitPost = async function() {
             ts: Date.now()
         };
         
-        // Target specifically the student's slot to avoid writing over other students
-        const targetIndex = idx !== -1 ? idx : posts.length;
-        await set(ref(db, `boards/${activeBoardId}/classrooms/${activeClassroomIndex}/assignments/${activeAssignmentIndex}/posts/${targetIndex}`), payload);
+        // Update the posts array in the classrooms JSONB
+        if (idx !== -1) {
+            posts[idx] = payload;
+        } else {
+            posts.push(payload);
+        }
+        classrooms[activeClassroomIndex].assignments[activeAssignmentIndex].posts = posts;
+        
+        const { error: updateErr } = await supabase.from('boards_index').update({ classrooms: JSON.stringify(classrooms) }).eq('id', activeBoardId);
+        if (updateErr) throw updateErr;
+        
         showToast('ส่งงานสำเร็จเรียบร้อยครับ!');
         
         postFilesBase64 = [];
@@ -1715,26 +1859,70 @@ window.submitPost = async function() {
 let currentDrawingPassportData = null;
 let currentSafetyPassportData = null;
 
-function listenToPassports() {
+async function listenToPassports() {
     if (!studentUser) return;
     
-    // Listen to Drawing Passport
-    onValue(ref(db, `passports/${studentUser.phone}`), (snap) => {
-        if (snap.exists()) {
-            currentDrawingPassportData = snap.val();
-            updateDrawingPassportBooklet();
-            updateShopAssets();
+    // Fetch Drawing Passport from Supabase
+    let dpSnap = await get(`passports/${studentUser.phone}`);
+    if (!dpSnap.exists()) {
+        const passportBase = {
+            id: studentUser.phone,
+            first_name: studentUser.name.split(' ')[0],
+            last_name: studentUser.name.split(' ').slice(1).join(' ') || '',
+            class_name: studentUser.classroom,
+            phone: studentUser.phone,
+            points: 0,
+            history: JSON.stringify([{
+                type: 'plus', amount: 0,
+                reason: 'สร้างบัญชีพาสปอร์ต',
+                date: new Date().toLocaleDateString('th-TH')
+            }]),
+            challenges: JSON.stringify({}),
+            reflection: '',
+            date_joined: new Date().toISOString(),
+            team_name: ''
+        };
+        const { error } = await supabase.from('passports').upsert(passportBase, { onConflict: 'id' });
+        if (!error) {
+            dpSnap = await get(`passports/${studentUser.phone}`);
         }
-    });
+    }
+    if (dpSnap.exists()) {
+        currentDrawingPassportData = dpSnap.val();
+        updateDrawingPassportBooklet();
+        updateShopAssets();
+    }
     
-    // Listen to Safety Passport
-    onValue(ref(db, `safety_passports/${studentUser.phone}`), (snap) => {
-        if (snap.exists()) {
-            currentSafetyPassportData = snap.val();
-            updateSafetyPassportBooklet();
-            updateShopAssets();
+    // Fetch Safety Passport from Supabase
+    let spSnap = await get(`safety_passports/${studentUser.phone}`);
+    if (!spSnap.exists()) {
+        const passportBase = {
+            id: studentUser.phone,
+            first_name: studentUser.name.split(' ')[0],
+            last_name: studentUser.name.split(' ').slice(1).join(' ') || '',
+            class_name: studentUser.classroom,
+            phone: studentUser.phone,
+            points: 0,
+            history: JSON.stringify([{
+                type: 'plus', amount: 0,
+                reason: 'สร้างบัญชีพาสปอร์ต',
+                date: new Date().toLocaleDateString('th-TH')
+            }]),
+            challenges: JSON.stringify({}),
+            reflection: '',
+            date_joined: new Date().toISOString(),
+            team_name: ''
+        };
+        const { error } = await supabase.from('safety_passports').upsert(passportBase, { onConflict: 'id' });
+        if (!error) {
+            spSnap = await get(`safety_passports/${studentUser.phone}`);
         }
-    });
+    }
+    if (spSnap.exists()) {
+        currentSafetyPassportData = spSnap.val();
+        updateSafetyPassportBooklet();
+        updateShopAssets();
+    }
 }
 
 const DRAWING_CHALLENGES = [
@@ -1778,7 +1966,7 @@ async function updateDrawingPassportBooklet() {
     
     // Render Photos efficiently using cache
     if (!studentPhotosCache) {
-        const photoSnap = await get(ref(db, `passport_photos/${studentUser.phone}`));
+        const photoSnap = await get(`passport_photos/${studentUser.phone}`);
         if (photoSnap.exists()) studentPhotosCache = photoSnap.val();
     }
     
@@ -1788,12 +1976,23 @@ async function updateDrawingPassportBooklet() {
             document.getElementById('dp-photo-stu').src = ph.student;
             document.getElementById('dp-photo-stu').style.display = 'block';
             document.getElementById('dp-stu-icon').style.display = 'none';
+        } else {
+            document.getElementById('dp-photo-stu').style.display = 'none';
+            document.getElementById('dp-stu-icon').style.display = 'block';
         }
         if (ph.buddy) {
             document.getElementById('dp-photo-bud').src = ph.buddy;
             document.getElementById('dp-photo-bud').style.display = 'block';
             document.getElementById('dp-bud-icon').style.display = 'none';
+        } else {
+            document.getElementById('dp-photo-bud').style.display = 'none';
+            document.getElementById('dp-bud-icon').style.display = 'block';
         }
+    } else {
+        document.getElementById('dp-photo-stu').style.display = 'none';
+        document.getElementById('dp-stu-icon').style.display = 'block';
+        document.getElementById('dp-photo-bud').style.display = 'none';
+        document.getElementById('dp-bud-icon').style.display = 'block';
     }
     
     // Page 2 Stats
@@ -1852,7 +2051,7 @@ async function updateSafetyPassportBooklet() {
     
     // Render Photos efficiently using cache
     if (!studentPhotosCache) {
-        const photoSnap = await get(ref(db, `passport_photos/${studentUser.phone}`));
+        const photoSnap = await get(`passport_photos/${studentUser.phone}`);
         if (photoSnap.exists()) studentPhotosCache = photoSnap.val();
     }
     
@@ -1862,12 +2061,23 @@ async function updateSafetyPassportBooklet() {
             document.getElementById('sp-photo-stu').src = ph.student;
             document.getElementById('sp-photo-stu').style.display = 'block';
             document.getElementById('sp-stu-icon').style.display = 'none';
+        } else {
+            document.getElementById('sp-photo-stu').style.display = 'none';
+            document.getElementById('sp-stu-icon').style.display = 'block';
         }
         if (ph.buddy) {
             document.getElementById('sp-photo-bud').src = ph.buddy;
             document.getElementById('sp-photo-bud').style.display = 'block';
             document.getElementById('sp-bud-icon').style.display = 'none';
+        } else {
+            document.getElementById('sp-photo-bud').style.display = 'none';
+            document.getElementById('sp-bud-icon').style.display = 'block';
         }
+    } else {
+        document.getElementById('sp-photo-stu').style.display = 'none';
+        document.getElementById('sp-stu-icon').style.display = 'block';
+        document.getElementById('sp-photo-bud').style.display = 'none';
+        document.getElementById('sp-bud-icon').style.display = 'block';
     }
     
     // Page 2 Stats
@@ -2108,7 +2318,7 @@ async function executeRedeem(rewardType, rewardName, subjectType, pointsCost, st
     const subText = subjectType === 'drawing' ? 'เขียนแบบเทคนิคเบื้องต้น' : 'ความปลอดภัยในสถานศึกษา';
     try {
         const passportRefPath = subjectType === 'drawing' ? `passports/${studentUser.phone}` : `safety_passports/${studentUser.phone}`;
-        const snap = await get(ref(db, passportRefPath));
+        const snap = await get(passportRefPath);
         if (!snap.exists()) {
             showToast('ไม่พบข้อมูลพาสปอร์ตของคุณในระบบ', false);
             return;
@@ -2132,7 +2342,7 @@ async function executeRedeem(rewardType, rewardName, subjectType, pointsCost, st
                 timestamp: Date.now()
             });
             
-            await update(ref(db, passportRefPath), {
+            await update(passportRefPath, {
                 points: newPoints,
                 history: history
             });
@@ -2150,29 +2360,28 @@ async function executeRedeem(rewardType, rewardName, subjectType, pointsCost, st
                 return;
             }
             
-            await update(ref(db, passportRefPath), {
+            await update(passportRefPath, {
                 music_chances_used: usedChances + 1
             });
         }
         
         const code = Math.floor(1000 + Math.random() * 9000).toString();
-        const newRedeemRef = push(ref(db, 'redemptions'));
         const redemptionPayload = {
-            id: newRedeemRef.key,
-            studentPhone: studentUser.phone,
-            studentName: studentUser.name,
-            studentClassroom: studentUser.classroom,
-            rewardType: rewardType,
-            rewardName: rewardName,
-            costPoints: pointsCost,
-            costStamps: stampsCost,
-            subjectType: subjectType,
+            student_phone: studentUser.phone,
+            student_name: studentUser.name,
+            student_classroom: studentUser.classroom,
+            reward_type: rewardType,
+            reward_name: rewardName,
+            cost_points: pointsCost,
+            cost_stamps: stampsCost,
+            subject_type: subjectType,
             code: code,
             status: 'pending',
             timestamp: Date.now()
         };
         
-        await set(newRedeemRef, redemptionPayload);
+        const { error: redeemErr } = await supabase.from('redemptions').insert(redemptionPayload);
+        if (redeemErr) throw redeemErr;
         showToast('🎟️ ส่งคำขอแลกสำเร็จ! กรุณายื่นรหัส 4 หลักให้ครูอนุมัติ');
         
     } catch(e) {
@@ -2180,36 +2389,32 @@ async function executeRedeem(rewardType, rewardName, subjectType, pointsCost, st
     }
 }
 
-function listenToStudentRedemptions() {
+async function listenToStudentRedemptions() {
     if (!studentUser) return;
-    const q = query(ref(db, 'redemptions'), orderByChild('studentPhone'), equalTo(studentUser.phone));
-    onValue(q, (snap) => {
+    try {
+        const { data, error } = await supabase
+            .from('redemptions')
+            .select('*')
+            .eq('student_phone', studentUser.phone)
+            .order('timestamp', { ascending: false });
+        
         const zone = document.getElementById('shopActiveRedemptionsZone');
         const list = document.getElementById('shopActiveRedemptionsList');
         
-        // Trigger history UI update with the preloaded snap!
-        updateStudentHistoryUI(snap);
+        updateStudentHistoryUI(data || []);
         
-        if (!snap.exists()) {
-            zone.style.display = 'none';
-            return;
-        }
-        
-        const data = snap.val();
-        const active = Object.values(data).filter(r => r.status === 'pending');
-        
+        const active = (data || []).filter(r => r.status === 'pending');
         if (active.length === 0) {
             zone.style.display = 'none';
             return;
         }
-        
         zone.style.display = 'block';
         list.innerHTML = active.map(r => {
-            const subText = r.subjectType === 'drawing' ? 'เขียนแบบเทคนิคเบื้องต้น' : 'ความปลอดภัยในสถานศึกษา';
+            const subText = r.subject_type === 'drawing' ? 'เขียนแบบเทคนิคเบื้องต้น' : 'ความปลอดภัยในสถานศึกษา';
             return `
                 <div style="background:rgba(251,191,36,0.08); border:1px dashed var(--gold); border-radius:12px; padding:16px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
                     <div>
-                        <div style="font-size:0.95rem; font-weight:700; color:#fff;">${r.rewardName}</div>
+                        <div style="font-size:0.95rem; font-weight:700; color:#fff;">${r.reward_name}</div>
                         <div style="font-size:0.75rem; color:var(--text2); margin-top:4px;">วิชา: ${subText}</div>
                     </div>
                     <div style="text-align:right;">
@@ -2219,10 +2424,12 @@ function listenToStudentRedemptions() {
                 </div>
             `;
         }).join('');
-    });
+    } catch(e) {
+        console.error('listenToStudentRedemptions error:', e);
+    }
 }
 
-async function updateStudentHistoryUI(preloadedRedeemsSnap = null) {
+async function updateStudentHistoryUI(preloadedRedeems = null) {
     if (!studentUser) return;
     const historyContainer = document.getElementById('studentShopHistoryList');
     if (!historyContainer) return;
@@ -2230,69 +2437,67 @@ async function updateStudentHistoryUI(preloadedRedeemsSnap = null) {
     try {
         const listItems = [];
         
-        // 1. Fetch Redemptions history filtered by student phone (or use preloaded to save network)
-        let redeemsSnap = preloadedRedeemsSnap;
-        if (!redeemsSnap) {
-            const q = query(ref(db, 'redemptions'), orderByChild('studentPhone'), equalTo(studentUser.phone));
-            redeemsSnap = await get(q);
+        // 1. Use preloaded array or fetch from Supabase
+        let redeems = preloadedRedeems;
+        if (!redeems) {
+            const { data } = await supabase
+                .from('redemptions')
+                .select('*')
+                .eq('student_phone', studentUser.phone);
+            redeems = data || [];
         }
         
-        if (redeemsSnap && redeemsSnap.exists()) {
-            const data = redeemsSnap.val();
-            Object.values(data).forEach(r => {
-                listItems.push({
-                    type: 'redemption',
-                    title: r.rewardName,
-                    subject: r.subjectType === 'drawing' ? 'เขียนแบบฯ' : 'ความปลอดภัยฯ',
-                    cost: r.costPoints > 0 ? `-${r.costPoints} แต้ม` : `-${r.costStamps} ดวง`,
-                    status: r.status,
-                        timestamp: r.timestamp || Date.now(),
-                        code: r.code
-                    });
+        redeems.forEach(r => {
+            listItems.push({
+                type: 'redemption',
+                title: r.reward_name || r.rewardName,
+                subject: (r.subject_type || r.subjectType) === 'drawing' ? 'เขียนแบบฯ' : 'ความปลอดภัยฯ',
+                cost: (r.cost_points || r.costPoints || 0) > 0
+                    ? `-${r.cost_points || r.costPoints} แต้ม`
+                    : `-${r.cost_stamps || r.costStamps} ดวง`,
+                status: r.status,
+                timestamp: r.timestamp || Date.now(),
+                code: r.code
             });
-        }
+        });
         
         let historyClearedAt = 0;
         
-        // 2. Fetch passport adjustments history
-        const dpSnap = await get(ref(db, `passports/${studentUser.phone}`));
-        if (dpSnap.exists()) {
-            const dp = dpSnap.val();
-            if (dp.historyClearedAt && dp.historyClearedAt > historyClearedAt) {
-                historyClearedAt = dp.historyClearedAt;
-            }
-            if (dp.history && Array.isArray(dp.history)) {
-                dp.history.forEach(item => {
-                    listItems.push({
-                        type: 'adjustment',
-                        title: item.reason || 'ปรับแต้มสะสม',
-                        subject: 'เขียนแบบฯ',
-                        cost: item.type === 'plus' ? `+${item.amount} แต้ม` : `-${item.amount} แต้ม`,
-                        status: 'approved',
-                        timestamp: item.timestamp || Date.now()
-                    });
+        // 2. Use cached passport data if available, else fetch
+        const dpData = currentDrawingPassportData || (await get(`passports/${studentUser.phone}`)).val();
+        if (dpData) {
+            if (dpData.historyClearedAt && dpData.historyClearedAt > historyClearedAt)
+                historyClearedAt = dpData.historyClearedAt;
+            const hist = Array.isArray(dpData.history) ? dpData.history
+                : (typeof dpData.history === 'string' ? tryParseJSON(dpData.history) : []);
+            (hist || []).forEach(item => {
+                listItems.push({
+                    type: 'adjustment',
+                    title: item.reason || 'ปรับแต้มสะสม',
+                    subject: 'เขียนแบบฯ',
+                    cost: item.type === 'plus' ? `+${item.amount} แต้ม` : `-${item.amount} แต้ม`,
+                    status: 'approved',
+                    timestamp: item.timestamp || Date.now()
                 });
-            }
+            });
         }
         
-        const spSnap = await get(ref(db, `safety_passports/${studentUser.phone}`));
-        if (spSnap.exists()) {
-            const sp = spSnap.val();
-            if (sp.historyClearedAt && sp.historyClearedAt > historyClearedAt) {
-                historyClearedAt = sp.historyClearedAt;
-            }
-            if (sp.history && Array.isArray(sp.history)) {
-                sp.history.forEach(item => {
-                    listItems.push({
-                        type: 'adjustment',
-                        title: item.reason || 'ปรับแต้มสะสม',
-                        subject: 'ความปลอดภัยฯ',
-                        cost: item.type === 'plus' ? `+${item.amount} แต้ม` : `-${item.amount} แต้ม`,
-                        status: 'approved',
-                        timestamp: item.timestamp || Date.now()
-                    });
+        const spData = currentSafetyPassportData || (await get(`safety_passports/${studentUser.phone}`)).val();
+        if (spData) {
+            if (spData.historyClearedAt && spData.historyClearedAt > historyClearedAt)
+                historyClearedAt = spData.historyClearedAt;
+            const hist = Array.isArray(spData.history) ? spData.history
+                : (typeof spData.history === 'string' ? tryParseJSON(spData.history) : []);
+            (hist || []).forEach(item => {
+                listItems.push({
+                    type: 'adjustment',
+                    title: item.reason || 'ปรับแต้มสะสม',
+                    subject: 'ความปลอดภัยฯ',
+                    cost: item.type === 'plus' ? `+${item.amount} แต้ม` : `-${item.amount} แต้ม`,
+                    status: 'approved',
+                    timestamp: item.timestamp || Date.now()
                 });
-            }
+            });
         }
         
         // Filter out items cleared by student
@@ -2381,10 +2586,10 @@ window.clearStudentHistory = function() {
     askStudentConfirm("ล้างประวัติของคุณ?", "คุณมั่นใจใช่หรือไม่ว่าต้องการล้างประวัติการทำรายการของคุณในหน้านี้?\n(หมายเหตุ: คะแนนสะสม ตราประทับ และกราฟความก้าวหน้าของคุณจะไม่ได้รับผลกระทบใดๆ และครูจะยังเห็นบันทึกเพื่อตรวจสอบงานได้ตามปกติ)", async () => {
         try {
             const now = Date.now();
-            await update(ref(db, `passports/${studentUser.phone}`), {
+            await update(`passports/${studentUser.phone}`, {
                 historyClearedAt: now
             });
-            await update(ref(db, `safety_passports/${studentUser.phone}`), {
+            await update(`safety_passports/${studentUser.phone}`, {
                 historyClearedAt: now
             });
             

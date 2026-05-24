@@ -106,13 +106,13 @@ body{font-family:'IBM Plex Sans Thai','Prompt',sans-serif;background:#0a0f1e;col
         <p style="color:var(--text2);margin-bottom:24px;font-size:0.9rem;">เข้าสู่ระบบเพื่อจัดการกระดานทั้งหมด</p>
         <div class="form-group">
             <label>ชื่อผู้ใช้งาน (Username)</label>
-            <input type="text" class="input" id="loginUser" placeholder="admin" onkeypress="if(event.key==='Enter') handleLogin()">
+            <input type="text" class="input" id="loginUser" placeholder="admin" >
         </div>
         <div class="form-group">
             <label>รหัสผ่าน (Password)</label>
-            <input type="password" class="input" id="loginPass" placeholder="••••••••" onkeypress="if(event.key==='Enter') handleLogin()">
+            <input type="password" class="input" id="loginPass" placeholder="••••••••" >
         </div>
-        <button class="btn btn-primary" onclick="handleLogin()" style="margin-top:10px;">เข้าสู่ระบบ</button>
+        <button class="btn btn-primary" id="btnLogin" style="margin-top:10px;">เข้าสู่ระบบ</button>
     </div>
 </div>
 
@@ -273,7 +273,7 @@ body{font-family:'IBM Plex Sans Thai','Prompt',sans-serif;background:#0a0f1e;col
                         <!-- Direct Points Adjuster Form -->
                         <div style="background:var(--glass); border:1px solid var(--border); border-radius:var(--radius); padding:24px; backdrop-filter:blur(20px);">
                             <h3 style="margin-bottom:20px; font-size:1.15rem; color:#fff; display:flex; align-items:center; gap:8px;">
-                                <i class="fas fa-edit" style="color:#fbbf24"></i> แผงปรับเพิ่ม/ลดคะแนนรายบุคคล
+                                <i class="fas fa-edit" style="color:#fbbf24"></i> แผงปรับเพิ่ม/ลดคะแนน (เดี่ยว/กลุ่ม/ทั้งห้อง)
                             </h3>
                             
                             <div class="form-card" style="padding:0; background:none; border:none; box-shadow:none;">
@@ -289,9 +289,9 @@ body{font-family:'IBM Plex Sans Thai','Prompt',sans-serif;background:#0a0f1e;col
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label>2. เลือกชื่อนักเรียน</label>
+                                    <label>2. เลือกเป้าหมาย (นักเรียน/กลุ่ม/ห้อง)</label>
                                     <select class="input" id="adjStudent">
-                                        <option value="">-- เลือกนักเรียน (กรุณาเลือกห้องก่อน) --</option>
+                                        <option value="">-- เลือกเป้าหมาย (กรุณาเลือกห้องก่อน) --</option>
                                     </select>
                                 </div>
                                 
@@ -502,23 +502,13 @@ body{font-family:'IBM Plex Sans Thai','Prompt',sans-serif;background:#0a0f1e;col
 </div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getDatabase, ref, set, get, update, remove, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyDgXrAED1vXW9dhe6yEIV8kaUXBF8iAsIU",
-  authDomain: "prates-ea840.firebaseapp.com",
-  databaseURL: "https://prates-ea840-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "prates-ea840",
-  storageBucket: "prates-ea840.appspot.com",
-  messagingSenderId: "464798792570",
-  appId: "1:464798792570:web:39954e2ef16f2ed049b4c3"
-};
+const SUPABASE_URL = "https://vdceebtdfiysopihxcgr.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZkY2VlYnRkZml5c29waWh4Y2dyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTI3NjY2NSwiZXhwIjoyMDk0ODUyNjY1fQ.x-FymMjqNDFUf3f6ZmGNJC0jMIVDQKNEMB3vqsRrhW8";
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+let isReady = true; // Supabase client ready
 
 const DRAWING_CHALLENGES = [
     { id: 1, week: 1, title: 'The Blind Artist: เขียนชื่อด้วยเส้นหนาโดยหลับตา' },
@@ -550,11 +540,98 @@ const SAFETY_CHALLENGES = [
     { id: 16, week: 'WK 17', title: 'Grand Finale Quiz' }
 ];
 
-let isAuthReady = false;
-signInAnonymously(auth).then(() => {
-    isAuthReady = true;
-    console.log("🔐 Authenticated Anonymously (prates-ea840)");
-}).catch(err => console.error("❌ Auth Error:", err));
+// ── DB column mapping helpers (snake_case ↔ camelCase) ──────────────
+function dbToJs(row) {
+  if (!row) return row;
+  const mapped = { ...row };
+  if ('subject_type' in mapped) { mapped.subjectType = mapped.subject_type; delete mapped.subject_type; }
+  if ('created_by' in mapped)   { mapped.createdBy   = mapped.created_by;   delete mapped.created_by;   }
+  return mapped;
+}
+function jsToDb(obj) {
+  if (!obj) return obj;
+  const mapped = { ...obj };
+  if ('subjectType' in mapped) { mapped.subject_type = mapped.subjectType; delete mapped.subjectType; }
+  if ('createdBy' in mapped)   { mapped.created_by   = mapped.createdBy;   delete mapped.createdBy;   }
+  // Remove fields that don't exist in the DB table
+  delete mapped.ts;
+  delete mapped.tpl;
+  return mapped;
+}
+
+function parsePassportData(row) {
+    if (!row) return row;
+    const parsed = { ...row };
+    if ('first_name' in parsed) { parsed.firstName = parsed.first_name; }
+    if ('last_name' in parsed) { parsed.lastName = parsed.last_name; }
+    if ('class_name' in parsed) { parsed.className = parsed.class_name; }
+    if ('team_name' in parsed) { parsed.teamName = parsed.team_name; }
+    if ('date_joined' in parsed) { parsed.dateJoined = parsed.date_joined; }
+    if ('music_chances_used' in parsed) { parsed.musicChancesUsed = parsed.music_chances_used; }
+    if ('history_cleared_at' in parsed) { parsed.historyClearedAt = parsed.history_cleared_at; }
+    
+    if (typeof parsed.history === 'string') {
+        try { parsed.history = JSON.parse(parsed.history); } catch { parsed.history = []; }
+    }
+    if (!Array.isArray(parsed.history)) parsed.history = [];
+    
+    if (typeof parsed.challenges === 'string') {
+        try { parsed.challenges = JSON.parse(parsed.challenges); } catch { parsed.challenges = {}; }
+    }
+    if (!parsed.challenges || typeof parsed.challenges !== 'object') parsed.challenges = {};
+    
+    return parsed;
+}
+
+function parseRedemptionData(row) {
+    if (!row) return row;
+    const parsed = { ...row };
+    if ('student_phone' in parsed) { parsed.studentPhone = parsed.student_phone; }
+    if ('student_name' in parsed) { parsed.studentName = parsed.student_name; }
+    if ('student_classroom' in parsed) { parsed.studentClassroom = parsed.student_classroom; }
+    if ('reward_type' in parsed) { parsed.rewardType = parsed.reward_type; }
+    if ('reward_name' in parsed) { parsed.rewardName = parsed.reward_name; }
+    if ('cost_points' in parsed) { parsed.costPoints = parsed.cost_points; }
+    if ('cost_stamps' in parsed) { parsed.costStamps = parsed.cost_stamps; }
+    if ('subject_type' in parsed) { parsed.subjectType = parsed.subject_type; }
+    return parsed;
+}
+
+async function initDashboard() {
+  // Load boards index
+  const { data: boardsIdx, error: errIdx } = await supabase.from('boards_index').select('*');
+  if (errIdx) {
+    console.error('Error loading boards_index:', errIdx);
+    showToast('โหลดข้อมูลบอร์ดล้มเหลว', 'fas fa-times-circle');
+  } else {
+    // boards_index returns array; convert to object keyed by id
+    allBoards = {};
+    (boardsIdx || []).forEach(b => { allBoards[b.id] = dbToJs(b); });
+    renderBoards();
+  }
+
+  // Load review boards on demand (boards full data loaded per-board when needed)
+  reviewBoardsData = {};
+  const badge = document.getElementById('globalPendingBadge');
+  if (badge) badge.style.display = 'none';
+
+  // Load admin users
+  const { data: adminData, error: errAdmins } = await supabase.from('admin_users').select('*');
+  if (errAdmins) {
+    console.error('Error loading admin users:', errAdmins);
+    showToast('โหลดข้อมูลผู้ดูแลล้มเหลว', 'fas fa-times-circle');
+  } else {
+    allAdmins = {};
+    (adminData || []).forEach(a => { allAdmins[a.username] = a; });
+    renderAdmins();
+  }
+
+  // Existing functions for redemptions and timers remain unchanged (they will be updated later)
+  listenToRedemptions();
+  initializeChargingTimers();
+}
+
+// Firebase auth removed — using Supabase auth
 
 let currentUser = null;
 let allBoards = {};
@@ -610,23 +687,65 @@ window.askConfirm = (titleOrMsg, msgOrCallback, optCallback) => {
     document.getElementById('modalConfirm').classList.add('active');
 };
 
-window.handleLogin = async () => {
-    if(!isAuthReady) { showToast('กำลังเชื่อมต่อระบบ...', 'fas fa-spinner fa-spin'); return; }
-    const user = document.getElementById('loginUser').value.trim();
-    const pass = document.getElementById('loginPass').value.trim();
-    if(!user || !pass) return;
+function showBanner(msg, type='error') {
+    const b = document.createElement('div');
+    b.style.position = 'fixed';
+    b.style.top = '20px';
+    b.style.left = '50%';
+    b.style.transform = 'translateX(-50%) translateY(-50px)';
+    b.style.background = type === 'success' ? '#10b981' : '#ef4444';
+    b.style.color = '#fff';
+    b.style.padding = '12px 24px';
+    b.style.borderRadius = '8px';
+    b.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+    b.style.zIndex = '9999';
+    b.style.fontWeight = '600';
+    b.style.transition = 'all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55)';
+    b.style.opacity = '0';
+    b.innerHTML = msg;
+    document.body.appendChild(b);
+    setTimeout(() => {
+        b.style.transform = 'translateX(-50%) translateY(0)';
+        b.style.opacity = '1';
+    }, 10);
+    setTimeout(() => {
+        b.style.transform = 'translateX(-50%) translateY(-50px)';
+        b.style.opacity = '0';
+        setTimeout(() => b.remove(), 300);
+    }, 1000);
+}
 
-    const snap = await get(ref(db, 'admin_users'));
-    if(!snap.exists() && user === 'admin' && pass === 'password'){
-        await set(ref(db, 'admin_users/admin'), { pass: 'password' });
-        loginSuccess(user); return;
-    }
-    const admins = snap.val() || {};
-    if(admins[user] && admins[user].pass === pass) loginSuccess(user);
-    else showToast('Username หรือ Password ไม่ถูกต้อง', 'fas fa-times-circle');
+window.handleLogin = async () => {
+  const username = document.getElementById('loginUser').value.trim();
+  const password = document.getElementById('loginPass').value.trim();
+  if (!username || !password) {
+      showBanner('<i class="fas fa-exclamation-circle"></i> กรุณากรอก Username และ Password', 'error');
+      return;
+  }
+
+  // Step 1: Check if username exists
+  const { data: userRow, error: userErr } = await supabase
+    .from('admin_users')
+    .select('username, pass')
+    .eq('username', username)
+    .maybeSingle();
+
+  if (userErr || !userRow) {
+    showBanner('<i class="fas fa-times-circle"></i> Username ไม่ถูกต้อง', 'error');
+    return;
+  }
+
+  // Step 2: Check if password matches
+  if (userRow.pass !== password) {
+    showBanner('<i class="fas fa-times-circle"></i> Password ไม่ถูกต้อง', 'error');
+    return;
+  }
+
+  loginSuccess(username);
 };
 
 function loginSuccess(user) {
+    showBanner('<i class="fas fa-check-circle"></i> เข้าสู่ระบบสำเร็จ! ยินดีต้อนรับ ' + user, 'success');
     currentUser = user;
     document.getElementById('loginPage').style.display = 'none';
     document.getElementById('adminApp').style.display = 'flex';
@@ -637,43 +756,7 @@ function loginSuccess(user) {
 window.logout = () => location.reload();
 window.toggleSidebar = () => document.getElementById('sidebar').classList.toggle('collapsed');
 
-function initDashboard() {
-    onValue(ref(db, 'boards_index'), (snap) => {
-        allBoards = snap.exists() ? snap.val() : {};
-        renderBoards();
-    });
-    onValue(ref(db, 'boards'), (snap) => {
-        const allData = snap.val() || {};
-        reviewBoardsData = {};
-        let globalPending = 0;
-        
-        Object.keys(allData).forEach(id => {
-            const bd = allData[id];
-            if(bd.createdBy === currentUser || currentUser === 'admin') {
-                reviewBoardsData[id] = bd;
-                globalPending += getPendingCount(bd);
-            }
-        });
-        
-        const badge = document.getElementById('globalPendingBadge');
-        if(badge) {
-            badge.innerText = globalPending;
-            badge.style.display = globalPending > 0 ? 'block' : 'none';
-        }
-        
-        const activeView = document.querySelector('.view-section.active').id;
-        if(activeView === 'view-review') {
-            if(reviewCurrentBoardId) renderReviewBoardDetail();
-            else renderReviewBoardList();
-        }
-    });
-    onValue(ref(db, 'admin_users'), (snap) => {
-        allAdmins = snap.exists() ? snap.val() : {};
-        renderAdmins();
-    });
-    listenToRedemptions();
-    initializeChargingTimers();
-}
+// initDashboard() defined above using Supabase
 
 window.switchView = (view) => {
     document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
@@ -696,7 +779,7 @@ window.switchView = (view) => {
     } else if(view === 'shop'){
         document.getElementById('pageTitleText').innerText = 'อนุมัติการแลกของรางวัล';
         document.getElementById('headerActions').innerHTML = '';
-        updateTeacherHistoryUI();
+        listenToRedemptions();
     } else if(view === 'board-editor'){
         document.getElementById('headerActions').innerHTML = `<button class="btn btn-glass btn-sm" onclick="switchView('boards')"><i class="fas fa-arrow-left"></i> กลับ</button>`;
     } else if(view === 'tools'){
@@ -756,9 +839,13 @@ let activeEditorBoardId = null, activeEditorBoardData = null, activeClassroomInd
 
 window.editBoardLayout = async (id) => {
     activeEditorBoardId = id; 
-    const snap = await get(ref(db, 'boards/'+id));
-    if(snap.exists()){
-        activeEditorBoardData = snap.val();
+    const { data: snap, error: snapErr } = await supabase.from('boards_index').select('*').eq('id', id).maybeSingle();
+    if(snap){
+        activeEditorBoardData = dbToJs({ ...snap });
+        // classrooms may be stored as JSON string
+        if (typeof activeEditorBoardData.classrooms === 'string') {
+            try { activeEditorBoardData.classrooms = JSON.parse(activeEditorBoardData.classrooms); } catch { activeEditorBoardData.classrooms = []; }
+        }
         if(!activeEditorBoardData.classrooms) activeEditorBoardData.classrooms = [{id:Date.now(), name:'ห้องเรียน 1', assignments:[]}];
         activeClassroomIndex = 0; 
         switchView('board-editor');
@@ -767,7 +854,15 @@ window.editBoardLayout = async (id) => {
     }
 };
 
-async function saveEditor() { await set(ref(db, 'boards/'+activeEditorBoardId), activeEditorBoardData); }
+async function saveEditor() {
+    const payload = jsToDb({ ...activeEditorBoardData, id: activeEditorBoardId });
+    // Ensure classrooms is stored as JSON string for Supabase text/jsonb compatibility
+    if (typeof payload.classrooms !== 'string') {
+        payload.classrooms = JSON.stringify(payload.classrooms);
+    }
+    const { error } = await supabase.from('boards_index').upsert(payload, { onConflict: 'id' });
+    if (error) { console.error('saveEditor error:', error); showToast('บันทึกบอร์ดล้มเหลว', 'fas fa-times-circle'); }
+}
 
 function renderEditor(){
     const tabs = document.getElementById('classroomTabs');
@@ -1030,12 +1125,12 @@ window.toggleGrade = async (pi, status) => {
     if (activeEditorBoardData.subjectType && activeEditorBoardData.subjectType !== 'general' && post.studentPhone) {
         const phone = post.studentPhone;
         const subject = activeEditorBoardData.subjectType;
-        const refPath = subject === 'drawing' ? `passports/${phone}` : `safety_passports/${phone}`;
+        const passportTable = subject === 'drawing' ? 'passports' : 'safety_passports';
         
         try {
-            const pSnap = await get(ref(db, refPath));
-            if (pSnap.exists()) {
-                const pData = pSnap.val();
+            let { data: rawData } = await supabase.from(passportTable).select('*').eq('phone', phone).maybeSingle();
+            if (rawData) {
+                const pData = parsePassportData(rawData);
                 let points = pData.points || 0;
                 let history = pData.history || [];
                 let challenges = pData.challenges || {};
@@ -1068,10 +1163,14 @@ window.toggleGrade = async (pi, status) => {
                     }
                 }
                 
-                await update(ref(db, refPath), { points, history, challenges });
+                await supabase.from(passportTable).update({
+                    points,
+                    history: JSON.stringify(history),
+                    challenges: JSON.stringify(challenges)
+                }).eq('phone', phone);
                 showToast(`🔄 Sync พาสปอร์ตสำเร็จ! ${pData.firstName || ''} ตอนนี้มี ${points} คะแนน`, 'fas fa-sync');
             } else {
-                console.log(`⚠️ ไม่พบพาสปอร์ตสำหรับเบอร์ ${phone} บนเส้นทาง ${refPath}`);
+                console.log(`⚠️ ไม่พบพาสปอร์ตสำหรับเบอร์ ${phone}`);
             }
         } catch(err) {
             console.error("❌ Auto-sync error:", err);
@@ -1103,7 +1202,40 @@ window.delPost = (pi) => {
 };
 
 let reviewBoardsData = {}, reviewCurrentBoardId = null, reviewClassroomIndex = 0;
-window.loadReviewBoards = () => { renderReviewBoardList(); };
+window.loadReviewBoards = async () => {
+    const container = document.getElementById('reviewViewContent');
+    if (container) container.innerHTML = '<p style="text-align:center;padding:40px;color:var(--text2)"><i class="fas fa-spinner fa-spin"></i> กำลังโหลด...</p>';
+    
+    // Step 1: load boards_index for metadata (all data is in boards_index)
+    const { data: idxData, error: idxErr } = await supabase.from('boards_index').select('*');
+    if (idxErr || !idxData) { showToast('โหลดบอร์ดล้มเหลว', 'fas fa-times-circle'); return; }
+    
+    // Map snake_case columns to camelCase
+    const mappedIdx = idxData.map(b => dbToJs(b));
+    
+    // Filter to boards owned by current user (or all if admin)
+    const myIdx = mappedIdx.filter(b => b.createdBy === currentUser || currentUser === 'admin');
+    
+    // boards_index already has classrooms data — no separate boards table needed
+    reviewBoardsData = {};
+    let globalPending = 0;
+    myIdx.forEach(b => {
+        // Parse classrooms if stored as JSON string
+        if (typeof b.classrooms === 'string') {
+            try { b.classrooms = JSON.parse(b.classrooms); } catch { b.classrooms = []; }
+        }
+        if (!b.classrooms) b.classrooms = [];
+        reviewBoardsData[b.id] = b;
+        globalPending += getPendingCount(reviewBoardsData[b.id]);
+    });
+    
+    const badge = document.getElementById('globalPendingBadge');
+    if (badge) {
+        badge.innerText = globalPending;
+        badge.style.display = globalPending > 0 ? 'block' : 'none';
+    }
+    renderReviewBoardList();
+};
 
 function getPendingCount(bd) {
     let count = 0;
@@ -1210,10 +1342,33 @@ window.openAddAdminModal = () => {
 window.saveAdmin = async () => {
     const u = document.getElementById('adminUserInput').value.trim();
     const p = document.getElementById('adminPassInput').value.trim();
-    if(u && p) { await set(ref(db, `admin_users/${u}`), {pass:p}); closeModal('modalAdmin'); showToast('เพิ่มแล้ว'); }
+    if (u && p) {
+        const { error } = await supabase.from('admin_users').upsert({ username: u, pass: p }, { onConflict: 'username' });
+        if (error) {
+            console.error(error);
+            showToast('เพิ่มผู้ดูแลล้มเหลว', 'fas fa-times-circle');
+        } else {
+            closeModal('modalAdmin');
+            showToast('✅ เพิ่มผู้ดูแลเรียบร้อย');
+            // Refresh admin list
+            const { data, error: err } = await supabase.from('admin_users').select('*');
+            if (!err) { allAdmins = data || {}; renderAdmins(); }
+        }
+    }
 };
 
-window.deleteAdmin = (u) => askConfirm(`ลบ ${u}?`, async () => { await remove(ref(db, `admin_users/${u}`)); });
+window.deleteAdmin = (u) => askConfirm(`ลบ ${u}?`, async () => {
+    const { error } = await supabase.from('admin_users').delete().eq('username', u);
+    if (error) {
+        console.error(error);
+        showToast('ลบผู้ดูแลล้มเหลว', 'fas fa-times-circle');
+    } else {
+        // Refresh admin list
+        const { data, error: err } = await supabase.from('admin_users').select('*');
+        if (!err) { allAdmins = data || {}; renderAdmins(); }
+        showToast('✅ ลบผู้ดูแลเรียบร้อย');
+    }
+});
 
 let editingBoardId = null;
 window.openCreateBoardModal = () => {
@@ -1237,8 +1392,7 @@ document.getElementById('btnSaveBoard').onclick = async () => {
     const subjectType = document.getElementById('boardSubjectType').value;
     if(!name) return;
     if(editingBoardId){
-        await update(ref(db, `boards_index/${editingBoardId}`), { name, subjectType });
-        await update(ref(db, `boards/${editingBoardId}`), { name, subjectType });
+        await supabase.from('boards_index').update({ name, subject_type: subjectType }).eq('id', editingBoardId);
         if (activeEditorBoardId === editingBoardId && activeEditorBoardData) {
             activeEditorBoardData.name = name;
             activeEditorBoardData.subjectType = subjectType;
@@ -1247,15 +1401,28 @@ document.getElementById('btnSaveBoard').onclick = async () => {
         }
     } else {
         const id = 'B-'+Date.now();
-        const data = { name, createdBy: currentUser, ts: Date.now(), tpl: selectedTemplate, subjectType, classrooms: [{id:Date.now(), name:'ปวช.1', assignments:[]}] };
-        await set(ref(db, `boards/${id}`), data);
-        await set(ref(db, `boards_index/${id}`), { name, createdBy: currentUser, ts: Date.now(), tpl: selectedTemplate, subjectType });
+        const classrooms = JSON.stringify([{id:Date.now(), name:'ปวช.1', assignments:[]}]);
+        const { error } = await supabase.from('boards_index').insert({ id, name, created_by: currentUser, subject_type: subjectType, classrooms });
+        if (error) {
+            console.error('Create board error:', error);
+            showToast('สร้างบอร์ดล้มเหลว: ' + error.message, 'fas fa-times-circle');
+            return;
+        }
     }
     closeModal('modalBoard');
+    // Refresh board list
+    const { data: boardsIdx } = await supabase.from('boards_index').select('*');
+    allBoards = {};
+    (boardsIdx || []).forEach(b => { allBoards[b.id] = dbToJs(b); });
+    renderBoards();
+    showToast(editingBoardId ? '✅ แก้ไขบอร์ดสำเร็จ' : '✅ สร้างบอร์ดใหม่สำเร็จ');
 };
 
 window.deleteBoard = (id) => askConfirm('ลบถาวร?', async () => {
-    await remove(ref(db, `boards/${id}`)); await remove(ref(db, `boards_index/${id}`));
+    await supabase.from('boards_index').delete().eq('id', id);
+    delete allBoards[id];
+    renderBoards();
+    showToast('🗑️ ลบบอร์ดเรียบร้อย');
 });
 
 let selectedTemplate = 'wall';
@@ -1265,26 +1432,27 @@ window.selectTemplate = (t, el) => {
     el.classList.add('selected');
 };
 
-function listenToRedemptions() {
-    onValue(ref(db, 'redemptions'), (snap) => {
-        // Refresh teacher audit history log in real-time
-        updateTeacherHistoryUI();
-        
-        const badge = document.getElementById('globalRedeemPendingBadge');
-        const tbody = document.getElementById('shopRedemptionTableBody');
-        
-        if (!snap.exists()) {
-            if (badge) badge.style.display = 'none';
-            if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text2); padding:20px;">ไม่มีคำขอแลกของรางวัล</td></tr>`;
-            return;
-        }
-        
-        const data = snap.val();
-        const list = Object.values(data).filter(r => r.status === 'pending');
-        
-        list.sort((a, b) => b.timestamp - a.timestamp);
-        
-        if (badge) {
+async function listenToRedemptions() {
+    await updateTeacherHistoryUI();
+    
+    const badge = document.getElementById('globalRedeemPendingBadge');
+    const tbody = document.getElementById('shopRedemptionTableBody');
+    
+    const { data: rawRedemptionsData, error: redemErr } = await supabase.from('redemptions').select('*');
+    
+    if (redemErr || !rawRedemptionsData || rawRedemptionsData.length === 0) {
+        if (badge) badge.style.display = 'none';
+        if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text2); padding:20px;">ไม่มีคำขอแลกของรางวัล</td></tr>`;
+        return;
+    }
+    
+    const redemptionsData = rawRedemptionsData.map(r => parseRedemptionData(r));
+    const data = Object.fromEntries(redemptionsData.map(r => [r.id, r]));
+    const list = redemptionsData.filter(r => r.status === 'pending');
+    
+    list.sort((a, b) => b.timestamp - a.timestamp);
+    
+    if (badge) {
             if (list.length > 0) {
                 badge.innerText = list.length;
                 badge.style.display = 'block';
@@ -1329,23 +1497,20 @@ function listenToRedemptions() {
                 `;
             }).join('');
         }
-    });
 }
 
 window.approveRedemption = function(redeemId) {
     askConfirm("ยืนยันการอนุมัติ", "คุณแน่ใจใช่หรือไม่ว่าต้องการอนุมัติคำขอแลกของรางวัลนี้?", async () => {
         try {
-            const snap = await get(ref(db, `redemptions/${redeemId}`));
-            if (!snap.exists()) {
+            const { data: snapData, error: snapErr } = await supabase.from('redemptions').select('*').eq('id', redeemId).maybeSingle();
+            if (!snapData) {
                 showToast("ไม่พบข้อมูลคำขอแลกสิทธิ์นี้", "fas fa-times-circle");
                 return;
             }
             
-            const r = snap.val();
+            const r = parseRedemptionData(snapData);
             
-            await update(ref(db, `redemptions/${redeemId}`), {
-                status: 'approved'
-            });
+            await supabase.from('redemptions').update({ status: 'approved' }).eq('id', redeemId);
             
             showToast("✅ อนุมัติการแลกของรางวัลเรียบร้อยครับ!");
             
@@ -1353,7 +1518,7 @@ window.approveRedemption = function(redeemId) {
                 startBatteryTimer(r.studentName || 'นักเรียน', r.studentClassroom || 'ไม่ระบุ');
             }
             
-            updateTeacherHistoryUI();
+            listenToRedemptions();
         } catch(e) {
             showToast("เกิดข้อผิดพลาดในการอนุมัติ: " + e.message, "fas fa-times-circle");
         }
@@ -1365,18 +1530,18 @@ window.rejectRedemption = function(redeemId) {
     cachedSafetyPassports = null;
     askConfirm("ยืนยันการปฏิเสธ", "คุณแน่ใจใช่หรือไม่ว่าต้องการปฏิเสธคำขอนี้? แต้มหรือสิทธิ์สะสมจะถูกโอนกลับคืนให้นักเรียนโดยอัตโนมัติ", async () => {
         try {
-            const snap = await get(ref(db, `redemptions/${redeemId}`));
-            if (!snap.exists()) {
+            const { data: snapData, error: snapErr } = await supabase.from('redemptions').select('*').eq('id', redeemId).maybeSingle();
+            if (!snapData) {
                 showToast("ไม่พบข้อมูลคำขอแลกสิทธิ์นี้", "fas fa-times-circle");
                 return;
             }
             
-            const r = snap.val();
-            const passportRefPath = r.subjectType === 'drawing' ? `passports/${r.studentPhone}` : `safety_passports/${r.studentPhone}`;
+            const r = parseRedemptionData(snapData);
+            const passportTable = r.subjectType === 'drawing' ? 'passports' : 'safety_passports';
             
-            const passSnap = await get(ref(db, passportRefPath));
-            if (passSnap.exists()) {
-                const p = passSnap.val();
+            let { data: rawPassData } = await supabase.from(passportTable).select('*').eq('phone', r.studentPhone).maybeSingle();
+            if (rawPassData) {
+                const p = parsePassportData(rawPassData);
                 
                 if (r.costPoints > 0) {
                     const currentPoints = p.points || 0;
@@ -1389,25 +1554,21 @@ window.rejectRedemption = function(redeemId) {
                         timestamp: Date.now()
                     });
                     
-                    await update(ref(db, passportRefPath), {
+                    await supabase.from(passportTable).update({
                         points: newPoints,
-                        history: history
-                    });
+                        history: JSON.stringify(history)
+                    }).eq('phone', r.studentPhone);
                     
                 } else if (r.costStamps > 0) {
                     const currentUsed = p.music_chances_used || 0;
-                    await update(ref(db, passportRefPath), {
-                        music_chances_used: Math.max(0, currentUsed - 1)
-                    });
+                    await supabase.from(passportTable).update({ music_chances_used: Math.max(0, currentUsed - 1) }).eq('phone', r.studentPhone);
                 }
             }
             
-            await update(ref(db, `redemptions/${redeemId}`), {
-                status: 'rejected'
-            });
+            await supabase.from('redemptions').update({ status: 'rejected' }).eq('id', redeemId);
             
             showToast("❌ ปฏิเสธคำขอและคืนแต้ม/สิทธิ์ให้นักเรียนเรียบร้อยครับ!");
-            updateTeacherHistoryUI();
+            listenToRedemptions();
             
         } catch(e) {
             showToast("เกิดข้อผิดพลาดในการปฏิเสธ: " + e.message, "fas fa-times-circle");
@@ -1418,100 +1579,138 @@ window.rejectRedemption = function(redeemId) {
 window.onAdjustmentClassroomChange = async function() {
     const room = document.getElementById('adjClassroom').value;
     const studentSelect = document.getElementById('adjStudent');
-    studentSelect.innerHTML = '<option value="">-- กำลังโหลดรายชื่อนักเรียน... --</option>';
+    studentSelect.innerHTML = '<option value="">-- กำลังโหลดข้อมูล... --</option>';
     
     if (!room) {
-        studentSelect.innerHTML = '<option value="">-- เลือกนักเรียน (กรุณาเลือกห้องก่อน) --</option>';
+        studentSelect.innerHTML = '<option value="">-- เลือกเป้าหมาย (กรุณาเลือกห้องก่อน) --</option>';
         return;
     }
     
     try {
-        const safeRoom = room.replace(/[.#$\[\]\/]/g, '_');
-        const snap = await get(ref(db, `students_master/${safeRoom}`));
-        if (snap.exists()) {
-            const data = snap.val();
-            let options = '<option value="">-- เลือกนักเรียน --</option>';
-            Object.keys(data).forEach(key => {
-                const s = data[key];
-                const realName = key.replace(/_/g, ' ');
-                if (s.phone) {
-                    options += `<option value="${s.phone}">${realName} (${s.phone})</option>`;
-                }
+        const { data: snapData } = await supabase.from('students_master').select('phone, first_name, last_name').eq('classroom', room).order('first_name');
+        if (snapData && snapData.length > 0) {
+            const phones = snapData.map(s => s.phone);
+            
+            const { data: pData } = await supabase.from('passports').select('phone, team_name').in('phone', phones);
+            const teams = new Set();
+            if (pData) {
+                pData.forEach(p => {
+                    if (p.team_name && p.team_name.trim() !== '') teams.add(p.team_name.trim());
+                });
+            }
+            
+            let options = '<option value="">-- เลือกเป้าหมาย --</option>';
+            options += '<option value="ALL_CLASS">🌟 ทั้งห้องเรียน (ทุกคนในห้อง)</option>';
+            
+            teams.forEach(t => {
+                options += `<option value="TEAM_${t}">👥 กลุ่ม: ${t}</option>`;
+            });
+            
+            snapData.forEach(s => {
+                const fullName = (s.first_name + ' ' + (s.last_name || '')).trim();
+                options += `<option value="${s.phone}">👤 ${fullName} (${s.phone})</option>`;
             });
             studentSelect.innerHTML = options;
         } else {
-            studentSelect.innerHTML = '<option value="">-- ไม่พบรายชื่อนักเรียนในฐานข้อมูลห้องนี้ --</option>';
+            studentSelect.innerHTML = '<option value="">-- ไม่พบข้อมูลนักเรียนในห้องนี้ --</option>';
         }
     } catch(e) {
-        console.error("Error loading students for adjustment:", e);
-        studentSelect.innerHTML = '<option value="">-- เกิดข้อผิดพลาดในการโหลดรายชื่อ --</option>';
+        console.error("Error loading targets:", e);
+        studentSelect.innerHTML = '<option value="">-- เกิดข้อผิดพลาดในการโหลด --</option>';
     }
 };
 
 window.adjustPointsIndividual = function() {
     cachedPassports = null;
     cachedSafetyPassports = null;
-    const studentPhone = document.getElementById('adjStudent').value;
+    const room = document.getElementById('adjClassroom').value;
+    const targetValue = document.getElementById('adjStudent').value;
     const subject = document.getElementById('adjSubject').value;
     const type = document.getElementById('adjType').value;
     const pointsVal = parseInt(document.getElementById('adjPoints').value);
     const reason = document.getElementById('adjReason').value.trim();
     
-    if (!studentPhone) {
-        showToast("กรุณาเลือกนักเรียนด้วยครับ", "fas fa-exclamation-circle");
+    if (!targetValue) {
+        showToast("กรุณาเลือกเป้าหมายด้วยครับ", "fas fa-exclamation-circle");
         return;
     }
     if (isNaN(pointsVal) || pointsVal <= 0) {
-        showToast("กรุณากรอกแต้มที่ต้องการปรับให้ถูกต้อง (มากกว่า 0)", "fas fa-exclamation-circle");
+        showToast("กรุณากรอกแต้มที่ต้องการปรับให้ถูกต้อง", "fas fa-exclamation-circle");
         return;
     }
     if (!reason) {
-        showToast("กรุณาระบุหมายเหตุหรือสาเหตุการปรับคะแนนด้วยครับ", "fas fa-exclamation-circle");
+        showToast("กรุณาระบุหมายเหตุด้วยครับ", "fas fa-exclamation-circle");
         return;
     }
     
     const subjectText = subject === 'drawing' ? 'เขียนแบบเทคนิคเบื้องต้น' : 'ความปลอดภัยในสถานศึกษา';
     const actionText = type === 'plus' ? 'เพิ่ม' : 'ลด';
+    let targetText = "นักเรียนคนนี้";
+    if (targetValue === 'ALL_CLASS') targetText = `นักเรียนทุกคนในห้อง ${room}`;
+    else if (targetValue.startsWith('TEAM_')) targetText = `นักเรียนกลุ่ม ${targetValue.substring(5)}`;
     
-    askConfirm("ยืนยันการปรับคะแนน", `คุณแน่ใจใช่หรือไม่ว่าต้องการ ${actionText}คะแนน จำนวน ${pointsVal} แต้ม\nของวิชา ${subjectText} สำหรับนักเรียนคนนี้?`, async () => {
+    askConfirm("ยืนยันการปรับคะแนน", `คุณแน่ใจใช่หรือไม่ว่าต้องการ${actionText}คะแนน จำนวน ${pointsVal} แต้ม\nของวิชา ${subjectText}\nสำหรับ${targetText}?`, async () => {
         try {
-            const refPath = subject === 'drawing' ? `passports/${studentPhone}` : `safety_passports/${studentPhone}`;
-            const snap = await get(ref(db, refPath));
-            if (!snap.exists()) {
-                showToast("ไม่พบข้อมูลสมุดพาสปอร์ตของนักเรียนรายนี้", "fas fa-times-circle");
+            const passportTable = subject === 'drawing' ? 'passports' : 'safety_passports';
+            let targetPhones = [];
+            
+            showToast(`กำลังเตรียมข้อมูล...`, 'fas fa-spinner fa-spin');
+            
+            if (targetValue === 'ALL_CLASS' || targetValue.startsWith('TEAM_')) {
+                const { data: students } = await supabase.from('students_master').select('phone').eq('classroom', room);
+                if (!students) throw new Error("ไม่สามารถโหลดรายชื่อนักเรียนได้");
+                let phones = students.map(s => s.phone);
+                
+                if (targetValue.startsWith('TEAM_')) {
+                    const teamName = targetValue.substring(5);
+                    const { data: teamPassports } = await supabase.from(passportTable).select('phone, team_name').in('phone', phones).eq('team_name', teamName);
+                    if (!teamPassports) throw new Error("ไม่สามารถโหลดรายชื่อกลุ่มได้");
+                    targetPhones = teamPassports.map(p => p.phone);
+                } else {
+                    targetPhones = phones;
+                }
+            } else {
+                targetPhones = [targetValue];
+            }
+            
+            if (targetPhones.length === 0) {
+                showToast("ไม่พบเป้าหมายที่จะปรับคะแนน", "fas fa-times-circle");
                 return;
             }
             
-            const p = snap.val();
-            const currentPoints = p.points || 0;
-            let newPoints = currentPoints;
+            showToast(`กำลังอัปเดตคะแนน ${targetPhones.length} รายการ...`, 'fas fa-spinner fa-spin');
             
-            if (type === 'plus') {
-                newPoints = currentPoints + pointsVal;
-            } else {
-                newPoints = Math.max(0, currentPoints - pointsVal);
-            }
-            
-            const history = p.history || [];
-            history.push({
-                type: type,
-                amount: pointsVal,
-                reason: `ครูปรับคะแนนรายบุคคล: ${reason}`,
-                timestamp: Date.now()
+            const promises = targetPhones.map(async (phone) => {
+                let { data: rawP } = await supabase.from(passportTable).select('*').eq('phone', phone).maybeSingle();
+                if (!rawP) return;
+                
+                const p = parsePassportData(passportTable, rawP);
+                const currentPoints = p.points || 0;
+                let newPoints = currentPoints;
+                if (type === 'plus') newPoints = currentPoints + pointsVal;
+                else newPoints = Math.max(0, currentPoints - pointsVal);
+                
+                const history = p.history || [];
+                history.push({
+                    type: type,
+                    amount: pointsVal,
+                    reason: `ครูปรับคะแนน(${targetValue==='ALL_CLASS'?'ทั้งห้อง':targetValue.startsWith('TEAM_')?'กลุ่ม':'บุคคล'}): ${reason}`,
+                    timestamp: Date.now()
+                });
+                
+                await supabase.from(passportTable).update({
+                    points: newPoints,
+                    history: JSON.stringify(history)
+                }).eq('phone', phone);
             });
             
-            await update(ref(db, refPath), {
-                points: newPoints,
-                history: history
-            });
+            await Promise.all(promises);
             
-            showToast(`💾 ดำเนินการปรับคะแนนสำเร็จ! คะแนนใหม่คือ ${newPoints} แต้ม`);
+            showToast(`💾 ดำเนินการปรับคะแนน ${targetPhones.length} รายการสำเร็จ!`);
             
             document.getElementById('adjPoints').value = '';
             document.getElementById('adjReason').value = '';
-            
-            // Refresh teacher audit history log
-            updateTeacherHistoryUI();
+            listenToRedemptions();
             
         } catch(e) {
             showToast("เกิดข้อผิดพลาดในการปรับคะแนน: " + e.message, "fas fa-times-circle");
@@ -1527,15 +1726,13 @@ async function updateTeacherHistoryUI() {
         const listItems = [];
         
         let historyClearedAt = 0;
-        const settingsSnap = await get(ref(db, 'admin_settings/historyClearedAt'));
-        if (settingsSnap.exists()) {
-            historyClearedAt = settingsSnap.val() || 0;
-        }
+        const _savedCleared = localStorage.getItem('admin_historyClearedAt');
+        historyClearedAt = _savedCleared ? parseInt(_savedCleared) : 0;
         
         // 1. Fetch Redemptions history
-        const redeemsSnap = await get(ref(db, 'redemptions'));
-        if (redeemsSnap.exists()) {
-            const data = redeemsSnap.val();
+        const { data: rawRedemptionsList } = await supabase.from('redemptions').select('*');
+        if (rawRedemptionsList && rawRedemptionsList.length > 0) {
+            const data = rawRedemptionsList.map(r => parseRedemptionData(r));
             Object.values(data).forEach(r => {
                 listItems.push({
                     type: 'redemption',
@@ -1554,8 +1751,11 @@ async function updateTeacherHistoryUI() {
         
         // 2. Fetch passport adjustments (drawing) using TTL cache
         if (!cachedPassports || now - lastPassportsFetchTime > CACHE_LIFETIME_MS) {
-            const dpSnap = await get(ref(db, 'passports'));
-            cachedPassports = dpSnap.exists() ? dpSnap.val() : {};
+            const { data: dpList } = await supabase.from('passports').select('*');
+            cachedPassports = dpList ? Object.fromEntries(dpList.map(p => {
+                const parsed = parsePassportData(p);
+                return [parsed.phone, parsed];
+            })) : {};
             lastPassportsFetchTime = now;
         }
         
@@ -1581,8 +1781,11 @@ async function updateTeacherHistoryUI() {
         
         // 3. Fetch passport adjustments (safety) using TTL cache
         if (!cachedSafetyPassports || now - lastSafetyPassportsFetchTime > CACHE_LIFETIME_MS) {
-            const spSnap = await get(ref(db, 'safety_passports'));
-            cachedSafetyPassports = spSnap.exists() ? spSnap.val() : {};
+            const { data: spList } = await supabase.from('safety_passports').select('*');
+            cachedSafetyPassports = spList ? Object.fromEntries(spList.map(p => {
+                const parsed = parsePassportData(p);
+                return [parsed.phone, parsed];
+            })) : {};
             lastSafetyPassportsFetchTime = now;
         }
         
@@ -1830,9 +2033,7 @@ window.clearTeacherHistory = function() {
     askConfirm("ล้างประวัติทั้งหมด", "คุณมั่นใจใช่หรือไม่ว่าต้องการล้างประวัติการทำรายการของคุณครูในหน้านี้?\n(หมายเหตุ: ยอดคะแนนสะสมจริงและประวัติการทำรายการของนักเรียนแต่ละคนจะไม่ได้รับผลกระทบใดๆ)", async () => {
         try {
             const now = Date.now();
-            await update(ref(db, 'admin_settings'), {
-                historyClearedAt: now
-            });
+            localStorage.setItem('admin_historyClearedAt', now.toString());
             
             showToast("🧹 ล้างประวัติการทำรายการของคุณครูเรียบร้อยครับ!");
             updateTeacherHistoryUI();
@@ -1851,11 +2052,10 @@ window.loadToolsClassrooms = async () => {
     if (!select) return;
     select.innerHTML = '<option value="all">-- กำลังโหลดห้องเรียน... --</option>';
     try {
-        const snap = await get(ref(db, 'users'));
-        if (snap.exists()) {
-            const users = snap.val();
+        const { data: usersList } = await supabase.from('students_master').select('classroom');
+        if (usersList && usersList.length > 0) {
             const rooms = new Set();
-            Object.values(users).forEach(u => {
+            usersList.forEach(u => {
                 if (u.classroom) rooms.add(u.classroom.trim());
             });
             let opts = '<option value="all">-- ตรวจสอบทุกห้องเรียน --</option>';
@@ -1879,18 +2079,26 @@ window.scanDuplicateScores = async () => {
     resultsDiv.innerHTML = `<div style="text-align:center; padding:30px; color:var(--primary-light);"><i class="fas fa-spinner fa-spin" style="font-size:2rem; margin-bottom:12px;"></i><br>กำลังตรวจสอบประวัติและสแกนแต้มซ้ำซ้อน...</div>`;
     
     try {
-        const usersSnap = await get(ref(db, 'users'));
-        const drawingSnap = await get(ref(db, 'passports'));
-        const safetySnap = await get(ref(db, 'safety_passports'));
+        const [{ data: usersList }, { data: drawingList }, { data: safetyList }] = await Promise.all([
+            supabase.from('students_master').select('*'),
+            supabase.from('passports').select('*'),
+            supabase.from('safety_passports').select('*')
+        ]);
         
-        if (!usersSnap.exists()) {
+        if (!usersList || usersList.length === 0) {
             resultsDiv.innerHTML = '<div style="text-align:center; color:var(--text2); padding:20px;">ไม่พบข้อมูลนักเรียนในระบบ</div>';
             return;
         }
         
-        const users = usersSnap.val();
-        const drawing = drawingSnap.exists() ? drawingSnap.val() : {};
-        const safety = safetySnap.exists() ? safetySnap.val() : {};
+        const users = Object.fromEntries(usersList.map(u => [u.phone, u]));
+        const drawing = drawingList ? Object.fromEntries(drawingList.map(p => {
+            const parsed = parsePassportData(p);
+            return [parsed.phone, parsed];
+        })) : {};
+        const safety = safetyList ? Object.fromEntries(safetyList.map(p => {
+            const parsed = parsePassportData(p);
+            return [parsed.phone, parsed];
+        })) : {};
         
         let targetUsers = Object.values(users);
         if (roomFilter !== 'all') {
@@ -2053,14 +2261,13 @@ window.fixSingleDuplicate = async (index) => {
     
     askConfirm("ยืนยันการดึงคะแนนคืน", `ระบบจะหักคะแนนสะสมที่เกินมา ${dup.excessPoints} แต้ม และล้างบันทึกประวัติซ้ำของ "${dup.studentName}" ในวิชา ${dup.subjectName} ยืนยันการดำเนินการ?`, async () => {
         try {
-            const refPath = dup.subjectType === 'drawing' ? `passports/${dup.studentPhone}` : `safety_passports/${dup.studentPhone}`;
-            const snap = await get(ref(db, refPath));
-            if (!snap.exists()) {
+            const passportTable2 = dup.subjectType === 'drawing' ? 'passports' : 'safety_passports';
+            let { data: rawP, error: pErr2 } = await supabase.from(passportTable2).select('*').eq('phone', dup.studentPhone).maybeSingle();
+            if (!rawP) {
                 showToast("ไม่พบพาสปอร์ตของนักเรียนรายนี้", "fas fa-times-circle");
                 return;
             }
-            
-            const p = snap.val();
+            const p = parsePassportData(rawP);
             let points = p.points || 0;
             let history = p.history || [];
             
@@ -2092,10 +2299,10 @@ window.fixSingleDuplicate = async (index) => {
                 timestamp: Date.now()
             });
             
-            await update(ref(db, refPath), {
-                points: points,
-                history: cleanedHistory
-            });
+            await supabase.from(passportTable2).update({
+                points,
+                history: JSON.stringify(cleanedHistory)
+            }).eq('phone', dup.studentPhone);
             
             showToast(`🧹 ล้างแต้มซ้ำของ ${dup.studentName} สำเร็จ!`, "fas fa-magic");
             scanDuplicateScores();
@@ -2114,10 +2321,10 @@ window.fixAllDuplicates = async () => {
         
         for (const dup of window.currentDuplicateScanData) {
             try {
-                const refPath = dup.subjectType === 'drawing' ? `passports/${dup.studentPhone}` : `safety_passports/${dup.studentPhone}`;
-                const snap = await get(ref(db, refPath));
-                if (snap.exists()) {
-                    const p = snap.val();
+                const passportTableLoop = dup.subjectType === 'drawing' ? 'passports' : 'safety_passports';
+                let { data: rawP } = await supabase.from(passportTableLoop).select('*').eq('phone', dup.studentPhone).maybeSingle();
+                if (rawP) {
+                    const p = parsePassportData(rawP);
                     let points = p.points || 0;
                     let history = p.history || [];
                     
@@ -2149,10 +2356,10 @@ window.fixAllDuplicates = async () => {
                         timestamp: Date.now()
                     });
                     
-                    await update(ref(db, refPath), {
-                        points: points,
-                        history: cleanedHistory
-                    });
+                    await supabase.from(passportTableLoop).update({
+                        points,
+                        history: JSON.stringify(cleanedHistory)
+                    }).eq('phone', dup.studentPhone);
                     successCount++;
                 }
             } catch(e) {
@@ -2165,6 +2372,17 @@ window.fixAllDuplicates = async () => {
         scanDuplicateScores();
     });
 };
+
+// ── Login form event listeners (module scope fix) ──────────────
+window.addEventListener('load', () => {
+    const loginHandler = () => window.handleLogin && window.handleLogin();
+    const btnLogin = document.getElementById('btnLogin');
+    if (btnLogin) btnLogin.addEventListener('click', loginHandler);
+    const loginUser = document.getElementById('loginUser');
+    if (loginUser) loginUser.addEventListener('keypress', e => { if(e.key==='Enter') loginHandler(); });
+    const loginPass = document.getElementById('loginPass');
+    if (loginPass) loginPass.addEventListener('keypress', e => { if(e.key==='Enter') loginHandler(); });
+});
 </script>
 </body>
 </html>

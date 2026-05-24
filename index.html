@@ -1007,6 +1007,53 @@ function loginSuccess(studentInfo) {
     
     // Sync Redemptions Realtime
     listenToStudentRedemptions();
+    
+    setupRealtime();
+}
+
+let studentRealtimeChannel = null;
+function setupRealtime() {
+    if (studentRealtimeChannel) return;
+    studentRealtimeChannel = supabase.channel('student-realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'boards_index' }, (payload) => {
+            const newBoard = payload.new;
+            if(!newBoard) return;
+            
+            // Parse classrooms from the raw payload (no dbToJs needed on student side)
+            const parsedBoard = { ...newBoard };
+            if (typeof parsedBoard.classrooms === 'string') {
+                try { parsedBoard.classrooms = JSON.parse(parsedBoard.classrooms); } catch { parsedBoard.classrooms = []; }
+            }
+            if (!parsedBoard.classrooms) parsedBoard.classrooms = [];
+            
+            allStudentBoards[parsedBoard.id] = parsedBoard;
+            if (typeof renderStudentBoards === 'function') renderStudentBoards();
+            
+            // If the student has a modal open for this board, update it
+            if (activeBoardId === parsedBoard.id && document.getElementById('modalAssignments') && document.getElementById('modalAssignments').classList.contains('active')) {
+                const contentStr = document.getElementById('boardModalBody').innerHTML || '';
+                const isOnAssignmentList = contentStr.includes('assignment-card') || contentStr.includes('ห้องนี้ยังไม่มีใบงานมอบหมาย');
+                const isOnSubmitView = contentStr.includes('submitWorkFormCard') || contentStr.includes('งานที่ส่งแล้วของคุณ');
+                
+                if (isOnSubmitView) {
+                    // Student is viewing a specific assignment's submit/status page
+                    if (typeof openSubmitWork === 'function') openSubmitWork(activeAssignmentIndex, parsedBoard);
+                } else if (isOnAssignmentList) {
+                    // Student is viewing the assignment list
+                    if (typeof openBoardAssignments === 'function') openBoardAssignments(activeBoardId, parsedBoard);
+                }
+            }
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'redemptions' }, () => {
+            if (typeof listenToStudentRedemptions === 'function') listenToStudentRedemptions();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'passports' }, () => {
+            if (typeof listenToPassports === 'function') listenToPassports();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'safety_passports' }, () => {
+            if (typeof listenToPassports === 'function') listenToPassports();
+        })
+        .subscribe();
 }
 
 window.logoutStudent = function() {
@@ -1354,15 +1401,20 @@ let activeBoardId = null;
 let activeClassroomIndex = 0;
 let activeAssignmentIndex = 0;
 
-window.openBoardAssignments = async function(boardId) {
+window.openBoardAssignments = async function(boardId, forceData = null) {
     activeBoardId = boardId;
     try {
-        const { data: boardRow, error: boardErr } = await supabase.from('boards_index').select('*').eq('id', boardId).maybeSingle();
-        if (boardErr || !boardRow) return;
-        const b = { ...boardRow };
-        // Parse classrooms from JSONB
-        if (typeof b.classrooms === 'string') {
-            try { b.classrooms = JSON.parse(b.classrooms); } catch { b.classrooms = []; }
+        let b;
+        if (forceData) {
+            b = forceData;
+        } else {
+            const { data: boardRow, error: boardErr } = await supabase.from('boards_index').select('*').eq('id', boardId).maybeSingle();
+            if (boardErr || !boardRow) return;
+            b = { ...boardRow };
+            // Parse classrooms from JSONB
+            if (typeof b.classrooms === 'string') {
+                try { b.classrooms = JSON.parse(b.classrooms); } catch { b.classrooms = []; }
+            }
         }
         if (!b.classrooms) b.classrooms = [];
         
@@ -1418,17 +1470,24 @@ window.closeBoardModal = function() {
     document.getElementById('modalAssignments').classList.remove('active');
 };
 
-window.openSubmitWork = async function(asgnIndex) {
+window.openSubmitWork = async function(asgnIndex, forceData = null) {
     activeAssignmentIndex = asgnIndex;
-    postFilesBase64 = [];
-    postLargeFileLink = null;
+    if (!forceData) {
+        postFilesBase64 = [];
+        postLargeFileLink = null;
+    }
     
     try {
-        const { data: boardRow, error: boardErr } = await supabase.from('boards_index').select('*').eq('id', activeBoardId).maybeSingle();
-        if (boardErr || !boardRow) return;
-        const b = { ...boardRow };
-        if (typeof b.classrooms === 'string') {
-            try { b.classrooms = JSON.parse(b.classrooms); } catch { b.classrooms = []; }
+        let b;
+        if (forceData) {
+            b = forceData;
+        } else {
+            const { data: boardRow, error: boardErr } = await supabase.from('boards_index').select('*').eq('id', activeBoardId).maybeSingle();
+            if (boardErr || !boardRow) return;
+            b = { ...boardRow };
+            if (typeof b.classrooms === 'string') {
+                try { b.classrooms = JSON.parse(b.classrooms); } catch { b.classrooms = []; }
+            }
         }
         if (!b.classrooms) b.classrooms = [];
         const a = b.classrooms[activeClassroomIndex].assignments[asgnIndex];

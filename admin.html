@@ -612,8 +612,7 @@ async function initDashboard() {
 
   // Load review boards on demand (boards full data loaded per-board when needed)
   reviewBoardsData = {};
-  const badge = document.getElementById('globalPendingBadge');
-  if (badge) badge.style.display = 'none';
+  updateRealtimePendingBadge();
 
   // Load admin users
   const { data: adminData, error: errAdmins } = await supabase.from('admin_users').select('*');
@@ -629,6 +628,91 @@ async function initDashboard() {
   // Existing functions for redemptions and timers remain unchanged (they will be updated later)
   listenToRedemptions();
   initializeChargingTimers();
+  setupRealtime();
+}
+
+let adminRealtimeChannel = null;
+
+function updateRealtimePendingBadge() {
+    let globalPending = 0;
+    Object.values(allBoards).forEach(b => {
+        if (b.createdBy === currentUser || currentUser === 'admin') {
+            let cls = b.classrooms;
+            if (typeof cls === 'string') {
+                try { cls = JSON.parse(cls); } catch { cls = []; }
+            }
+            if (cls && Array.isArray(cls)) {
+                cls.forEach(c => {
+                    if (c.assignments) {
+                        c.assignments.forEach(a => {
+                            if (a.posts) {
+                                a.posts.forEach(p => {
+                                    if (!p.isGraded) globalPending++;
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+        }
+    });
+    const badge = document.getElementById('globalPendingBadge');
+    if (badge) {
+        badge.innerText = globalPending;
+        badge.style.display = globalPending > 0 ? 'block' : 'none';
+    }
+}
+
+function setupRealtime() {
+    if (adminRealtimeChannel) return;
+    adminRealtimeChannel = supabase.channel('admin-realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'boards_index' }, (payload) => {
+            const newBoard = payload.new;
+            if(!newBoard) return;
+            allBoards[newBoard.id] = dbToJs({ ...newBoard });
+            renderBoards();
+            
+            updateRealtimePendingBadge();
+            
+            if (activeEditorBoardId === newBoard.id) {
+                activeEditorBoardData = dbToJs({ ...newBoard });
+                if (typeof activeEditorBoardData.classrooms === 'string') {
+                    try { activeEditorBoardData.classrooms = JSON.parse(activeEditorBoardData.classrooms); } catch { activeEditorBoardData.classrooms = []; }
+                }
+                if (document.getElementById('modalReviewPosts') && document.getElementById('modalReviewPosts').classList.contains('active')) {
+                    if (typeof renderReviewPosts === 'function') renderReviewPosts();
+                } else if (document.getElementById('view-board-editor') && document.getElementById('view-board-editor').classList.contains('active')) {
+                    if (typeof renderEditor === 'function') renderEditor();
+                }
+            }
+            
+            if (typeof reviewBoardsData !== 'undefined') {
+                if (reviewBoardsData[newBoard.id] || newBoard.created_by === currentUser || currentUser === 'admin') {
+                    reviewBoardsData[newBoard.id] = dbToJs({ ...newBoard });
+                    if (typeof reviewBoardsData[newBoard.id].classrooms === 'string') {
+                        try { reviewBoardsData[newBoard.id].classrooms = JSON.parse(reviewBoardsData[newBoard.id].classrooms); } catch {}
+                    }
+                    if (document.getElementById('view-review') && document.getElementById('view-review').classList.contains('active') && !document.getElementById('modalReviewPosts').classList.contains('active')) {
+                        const contentStr = document.getElementById('reviewViewContent').innerHTML || '';
+                        if (contentStr.includes('fa-arrow-left') || contentStr.includes('loadReviewBoards()')) {
+                            if (typeof renderReviewBoardDetail === 'function') renderReviewBoardDetail();
+                        } else {
+                            if (typeof renderReviewBoardList === 'function') renderReviewBoardList();
+                        }
+                    }
+                }
+            }
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'redemptions' }, () => {
+            if (typeof listenToRedemptions === 'function') listenToRedemptions();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'passports' }, () => {
+            lastPassportsFetchTime = 0;
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'safety_passports' }, () => {
+            lastSafetyPassportsFetchTime = 0;
+        })
+        .subscribe();
 }
 
 // Firebase auth removed — using Supabase auth
@@ -1177,7 +1261,12 @@ window.toggleGrade = async (pi, status) => {
         }
     }
     
-    await saveEditor(); renderReviewPosts(); renderEditor();
+    await saveEditor(); 
+    renderReviewPosts(); 
+    renderEditor();
+    if (status) {
+        closeModal('modalReviewPosts');
+    }
 };
 
 window.delPost = (pi) => {
@@ -1195,6 +1284,7 @@ window.delPost = (pi) => {
             renderReviewPosts(); 
             renderEditor();
             showToast("🗑️ ลบงานส่งและดึงคะแนนคืนเรียบร้อยครับ!");
+            closeModal('modalReviewPosts');
         } catch(e) {
             showToast("เกิดข้อผิดพลาดในการลบ: " + e.message, "fas fa-times-circle");
         }

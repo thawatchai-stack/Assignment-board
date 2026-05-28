@@ -69,6 +69,7 @@ body{font-family:'IBM Plex Sans Thai','Prompt',sans-serif;background:var(--dark)
 .board-subject-badge{font-size:0.65rem;padding:2px 6px;border-radius:4px;font-weight:600;margin-left:8px;display:inline-block}
 .bsb-drawing{background:rgba(99,102,241,0.15);color:#818cf8}
 .bsb-safety{background:rgba(20,184,166,0.15);color:#2dd4bf}
+.bsb-electrical{background:rgba(245,158,11,0.15);color:#fbbf24}
 .bsb-general{background:var(--glass2);color:var(--text2)}
 .board-name{font-size:1rem;font-weight:600;color:var(--text)}
 .board-owner{font-size:0.75rem;color:var(--text2);margin-top:4px}
@@ -285,7 +286,7 @@ body{font-family:'IBM Plex Sans Thai','Prompt',sans-serif;background:var(--dark)
                             <div class="booklet-title">ความก้าวหน้าสะสม</div>
                             <div style="width:100%;height:160px;margin-bottom:12px"><canvas id="dpGrowthChart"></canvas></div>
                             
-                            <div style="font-size:0.75rem;color:#475569">
+                            <div style="font-size:0.75rem;color:#475569" id="dp-rank-criteria">
                                 <strong>🏆 เกณฑ์การจัดยศวิชาเขียนแบบ:</strong><br>
                                 • < 3 ตรา: 🎖️ Trainee<br>
                                 • 3–7 ตรา: 📐 Draftsman<br>
@@ -441,9 +442,9 @@ body{font-family:'IBM Plex Sans Thai','Prompt',sans-serif;background:var(--dark)
                     <div style="font-size:0.9rem; font-weight:600; color:var(--text2); display:flex; justify-content:space-between; align-items:center;">
                         <span>สะสม Points & Stamps ของคุณ:</span>
                     </div>
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <div id="shopPointsGrid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                         <!-- Drawing Passport Points -->
-                        <div style="background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.15); border-radius:8px; padding:10px; text-align:center;">
+                        <div id="shopDrawingOuterBox" style="background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.15); border-radius:8px; padding:10px; text-align:center;">
                             <div style="font-size:0.7rem; color:#818cf8; font-weight:600; text-transform:uppercase;">เขียนแบบเทคนิคเบื้องต้น</div>
                             <div style="font-size:1.2rem; font-weight:700; color:#818cf8; margin-top:4px;">
                                 <i class="fas fa-star" style="color:#fbbf24"></i> <span id="shopDrawingPoints">0</span> แต้ม
@@ -453,7 +454,7 @@ body{font-family:'IBM Plex Sans Thai','Prompt',sans-serif;background:var(--dark)
                             </div>
                         </div>
                         <!-- Safety Passport Points -->
-                        <div style="background:rgba(20,184,166,0.08); border:1px solid rgba(20,184,166,0.15); border-radius:8px; padding:10px; text-align:center;">
+                        <div id="shopSafetyOuterBox" style="background:rgba(20,184,166,0.08); border:1px solid rgba(20,184,166,0.15); border-radius:8px; padding:10px; text-align:center;">
                             <div style="font-size:0.7rem; color:#2dd4bf; font-weight:600; text-transform:uppercase;">ความปลอดภัยในสถานศึกษา</div>
                             <div style="font-size:1.2rem; font-weight:700; color:#2dd4bf; margin-top:4px;">
                                 <i class="fas fa-star" style="color:#fbbf24"></i> <span id="shopSafetyPoints">0</span> แต้ม
@@ -518,8 +519,8 @@ body{font-family:'IBM Plex Sans Thai','Prompt',sans-serif;background:var(--dark)
                             <div style="font-size:0.75rem; color:#ef4444; font-weight:600; margin-top:6px; display:flex; flex-direction:column; gap:6px;">
                                 <div><i class="fas fa-stamp"></i> สะสมตราประทับครบ 2 ดวง แลกได้ 1 ครั้ง</div>
                                 <div style="display:flex; gap:12px; font-size:0.7rem; color:var(--text2);">
-                                    <span>เขียนแบบฯ สิทธิ์สะสม: <strong id="musicDrawingChances" style="color:#818cf8">0</strong> ครั้ง</span>
-                                    <span>ความปลอดภัยฯ สิทธิ์สะสม: <strong id="musicSafetyChances" style="color:#2dd4bf">0</strong> ครั้ง</span>
+                                    <span id="musicDrawingLabel">เขียนแบบฯ สิทธิ์สะสม: <strong id="musicDrawingChances" style="color:#818cf8">0</strong> ครั้ง</span>
+                                    <span id="musicSafetyLabel">ความปลอดภัยฯ สิทธิ์สะสม: <strong id="musicSafetyChances" style="color:#2dd4bf">0</strong> ครั้ง</span>
                                 </div>
                             </div>
                         </div>
@@ -662,6 +663,88 @@ const supabaseAnonKey = 'sb_publishable_mKWw9FNiiZN-V9kU7FUDvA_IFvGpFLu';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 let isReady = true; // Supabase client ready
 
+window.isVocational2Plus = function() {
+    if (!studentUser || !studentUser.classroom) return false;
+    const room = studentUser.classroom.trim();
+    return room.startsWith('ปวช.') && !room.startsWith('ปวช.1');
+};
+
+window.updateShopUIForLevel = function() {
+    const isVoc2 = window.isVocational2Plus();
+    const drawingBox = document.getElementById('shopDrawingOuterBox');
+    const safetyBox = document.getElementById('shopSafetyOuterBox');
+    const grid = document.getElementById('shopPointsGrid');
+    
+    const musicDrawingLabel = document.getElementById('musicDrawingLabel');
+    const musicSafetyLabel = document.getElementById('musicSafetyLabel');
+    
+    if (isVoc2) {
+        if (safetyBox) safetyBox.style.display = 'none';
+        if (grid) grid.style.gridTemplateColumns = '1fr';
+        
+        if (drawingBox) {
+            // Update Title
+            const titleEl = drawingBox.querySelector('div:first-child');
+            if (titleEl) {
+                titleEl.innerText = 'Electrical Content Creator';
+                titleEl.style.color = '#fbbf24';
+            }
+            // Update box styling to Gold Theme
+            drawingBox.style.background = 'rgba(245, 158, 11, 0.08)';
+            drawingBox.style.borderColor = 'rgba(245, 158, 11, 0.25)';
+            
+            // Update Points color
+            const pointsWrapper = document.getElementById('shopDrawingPoints') ? document.getElementById('shopDrawingPoints').parentElement : null;
+            if (pointsWrapper) {
+                pointsWrapper.style.color = '#fbbf24';
+            }
+        }
+        
+        if (musicSafetyLabel) musicSafetyLabel.style.display = 'none';
+        if (musicDrawingLabel) {
+            musicDrawingLabel.innerHTML = `Electrical Creator สิทธิ์สะสม: <strong id="musicDrawingChances" style="color:#fbbf24">0</strong> ครั้ง`;
+        }
+    } else {
+        if (safetyBox) safetyBox.style.display = 'block';
+        if (grid) grid.style.gridTemplateColumns = '1fr 1fr';
+        
+        if (drawingBox) {
+            // Update Title
+            const titleEl = drawingBox.querySelector('div:first-child');
+            if (titleEl) {
+                titleEl.innerText = 'เขียนแบบเทคนิคเบื้องต้น';
+                titleEl.style.color = '#818cf8';
+            }
+            // Update box styling to Indigo Theme
+            drawingBox.style.background = 'rgba(99, 102, 241, 0.08)';
+            drawingBox.style.borderColor = 'rgba(99, 102, 241, 0.15)';
+            
+            // Update Points color
+            const pointsWrapper = document.getElementById('shopDrawingPoints') ? document.getElementById('shopDrawingPoints').parentElement : null;
+            if (pointsWrapper) {
+                pointsWrapper.style.color = '#818cf8';
+            }
+        }
+        
+        if (musicSafetyLabel) musicSafetyLabel.style.display = 'inline';
+        if (musicDrawingLabel) {
+            musicDrawingLabel.innerHTML = `เขียนแบบฯ สิทธิ์สะสม: <strong id="musicDrawingChances" style="color:#818cf8">0</strong> ครั้ง`;
+        }
+    }
+    
+    // Update reward buttons
+    document.querySelectorAll('[onclick*="redeemReward"]').forEach(btn => {
+        const onClickAttr = btn.getAttribute('onclick');
+        if (onClickAttr.includes("'safety'")) {
+            btn.style.display = isVoc2 ? 'none' : 'inline-block';
+        } else if (onClickAttr.includes("'drawing'")) {
+            btn.innerText = isVoc2 
+                ? (onClickAttr.includes("'play_music'") ? 'ใช้สิทธิ์ Electrical Creator' : 'ใช้แต้ม Electrical Creator') 
+                : (onClickAttr.includes("'play_music'") ? 'ใช้สิทธิ์วิชาเขียนแบบฯ' : 'ใช้แต้มเขียนแบบฯ');
+        }
+    });
+};
+
 // Populate registration classroom select options
 const regClassroom = document.getElementById('regClassroom');
 if (regClassroom && window.CLASSROOMS) {
@@ -680,7 +763,7 @@ async function get(path) {
   const parts = path.split('/');
   const table = parts[0];
   const id = parts[1];
-  const pkCol = (table === 'passports' || table === 'safety_passports' || table === 'passport_photos') ? 'phone' : 'id';
+  const pkCol = (table === 'passports' || table === 'safety_passports' || table === 'electrical_passports' || table === 'passport_photos') ? 'phone' : 'id';
   const { data, error } = await supabase.from(table).select('*').eq(pkCol, id).maybeSingle();
   if (error) return { exists: () => false, val: () => null, error };
   return { exists: () => !!data, val: () => data ? parsePassportData(table, data) : null, error: null };
@@ -689,7 +772,7 @@ async function get(path) {
 // Normalise Supabase snake_case → camelCase for passport data
 function parsePassportData(table, row) {
   if (!row) return row;
-  if (table === 'passports' || table === 'safety_passports') {
+  if (table === 'passports' || table === 'safety_passports' || table === 'electrical_passports') {
     return {
       ...row,
       firstName: row.first_name,
@@ -717,6 +800,11 @@ function tryParseJSON(str) {
   try { return JSON.parse(str); } catch { return str; }
 }
 
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
 async function set(path, value) {
   const parts = path.split('/');
   const table = parts[0];
@@ -730,7 +818,7 @@ async function update(path, updates) {
   const parts = path.split('/');
   const table = parts[0];
   const id = parts[1];
-  const pkCol = (table === 'passports' || table === 'safety_passports' || table === 'passport_photos') ? 'phone' : 'id';
+  const pkCol = (table === 'passports' || table === 'safety_passports' || table === 'electrical_passports' || table === 'passport_photos') ? 'phone' : 'id';
   // Map camelCase to snake_case for Supabase columns
   const mapped = {};
   const keyMap = {
@@ -789,7 +877,8 @@ let dpChart = null;
 let spChart = null;
 
 isAuthReady = true;
-checkLocalSession();
+// Session persistence disabled — students must log in every time
+// checkLocalSession();
 
 function showToast(msg, isSuccess = true) {
     const el = document.getElementById('toastMsg');
@@ -807,8 +896,10 @@ function showToast(msg, isSuccess = true) {
 // ────────────────────────────────────────────────────────────────
 
 window.switchAuthTab = function(type) {
-    document.querySelectorAll('.auth-tab').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
+    document.querySelectorAll('.auth-tab').forEach((btn, i) => {
+        btn.classList.remove('active');
+        if ((type === 'login' && i === 0) || (type === 'register' && i === 1)) btn.classList.add('active');
+    });
     if (type === 'login') {
         document.getElementById('authLoginZone').style.display = 'block';
         document.getElementById('authRegisterZone').style.display = 'none';
@@ -932,10 +1023,16 @@ window.doRegister = async function() {
             team_name: ''
         };
         
-        const { error: dpErr } = await supabase.from('passports').upsert(passportBase, { onConflict: 'id' });
-        if (dpErr) throw dpErr;
-        const { error: spErr } = await supabase.from('safety_passports').upsert(passportBase, { onConflict: 'id' });
-        if (spErr) throw spErr;
+        const isVoc2 = room.trim().startsWith('ปวช.') && !room.trim().startsWith('ปวช.1');
+        if (isVoc2) {
+            const { error: epErr } = await supabase.from('electrical_passports').upsert(passportBase, { onConflict: 'id' });
+            if (epErr) throw epErr;
+        } else {
+            const { error: dpErr } = await supabase.from('passports').upsert(passportBase, { onConflict: 'id' });
+            if (dpErr) throw dpErr;
+            const { error: spErr } = await supabase.from('safety_passports').upsert(passportBase, { onConflict: 'id' });
+            if (spErr) throw spErr;
+        }
         
         showToast('ลงทะเบียนบัญชีสำเร็จ! ยินดีต้อนรับครับ');
         loginSuccess(studentInfo);
@@ -993,11 +1090,58 @@ function checkLocalSession() {
 
 function loginSuccess(studentInfo) {
     studentUser = studentInfo;
-    localStorage.setItem('cb_student_session', JSON.stringify(studentInfo));
+    // Session persistence disabled — no longer saving to localStorage
     
     document.getElementById('screenAuth').classList.remove('active');
     document.getElementById('screenApp').classList.add('active');
     
+    // Toggle subtabs and configure booklet titles
+    const isVoc2 = window.isVocational2Plus();
+    const subtabs = document.querySelector('.passport-subtabs');
+    if (subtabs) subtabs.style.display = isVoc2 ? 'none' : 'flex';
+    
+    const titleEl = document.querySelector('#drawingPassportZone .booklet-title');
+    const subTitleEl = document.querySelector('#drawingPassportZone .booklet-subtitle');
+    const iconEl = document.querySelector('#drawingPassportZone .booklet-emblem');
+    const criteriaEl = document.getElementById('dp-rank-criteria');
+    
+    if (isVoc2) {
+        if (titleEl) titleEl.innerText = 'ELECTRICAL CONTENT CREATOR';
+        if (subTitleEl) subTitleEl.innerText = 'Electrical Content Creator Passport';
+        if (iconEl) iconEl.innerHTML = '<i class="fas fa-bolt"></i>';
+        if (criteriaEl) {
+            criteriaEl.innerHTML = `<strong>🏆 เกณฑ์การจัดยศ Electrical Content Creator:</strong><br>
+            • &lt; 3 ตรา: 🎖️ Trainee<br>
+            • 3–7 ตรา: ⚡ Creator<br>
+            • 8–11 ตรา: 🎖️ Expert<br>
+            • 12+ ตรา: 👑 Master`;
+        }
+    } else {
+        if (titleEl) titleEl.innerText = 'DRAWING PASSPORT';
+        if (subTitleEl) subTitleEl.innerText = 'วิชาเขียนแบบเทคนิคเบื้องต้น';
+        if (iconEl) iconEl.innerHTML = '<i class="fas fa-drafting-compass"></i>';
+        if (criteriaEl) {
+            criteriaEl.innerHTML = `<strong>🏆 เกณฑ์การจัดยศวิชาเขียนแบบ:</strong><br>
+            • &lt; 3 ตรา: 🎖️ Trainee<br>
+            • 3–7 ตรา: 📐 Draftsman<br>
+            • 8–11 ตรา: 🎖️ Expert<br>
+            • 12+ ตรา: 👑 Master`;
+        }
+    }
+    if (isVoc2) {
+        currentActivePassportType = 'electrical';
+    } else {
+        currentActivePassportType = 'drawing';
+    }
+    
+    // Reset page indexes and trigger booklet nav update
+    dpPageIndex = 1;
+    spPageIndex = 1;
+    navBooklet('dp', 0);
+    
+    // Update shop layout
+    window.updateShopUIForLevel();
+
     // Render profiles & fetch dashboards
     document.getElementById('avatarName').innerText = studentInfo.name.charAt(0);
     document.getElementById('profileNameDisplay').innerText = studentInfo.name;
@@ -1060,6 +1204,9 @@ function setupRealtime() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'safety_passports' }, () => {
             if (typeof listenToPassports === 'function') listenToPassports();
         })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'electrical_passports' }, () => {
+            if (typeof listenToPassports === 'function') listenToPassports();
+        })
         .subscribe();
 }
 
@@ -1077,7 +1224,8 @@ async function loadProfileDetails() {
     try {
         await loadProfileClassmates();
         
-        const snap = await get(`passports/${studentUser.phone}`);
+        const passportTable = window.isVocational2Plus() ? 'electrical_passports' : 'passports';
+        const snap = await get(`${passportTable}/${studentUser.phone}`);
         if (snap.exists()) {
             const p = snap.val();
             document.getElementById('profTeamName').value = p.teamName || '';
@@ -1253,11 +1401,13 @@ window.saveProfileChanges = async function() {
         };
         
         // Sync payload to both passports!
-        const drawingUpdate = { teamName, buddy };
-        const safetyUpdate = { teamName, buddy };
-        
-        await update(`passports/${studentUser.phone}`, drawingUpdate);
-        await update(`safety_passports/${studentUser.phone}`, safetyUpdate);
+        const isVoc2 = window.isVocational2Plus();
+        if (isVoc2) {
+            await update(`electrical_passports/${studentUser.phone}`, { teamName, buddy });
+        } else {
+            await update(`passports/${studentUser.phone}`, { teamName, buddy });
+            await update(`safety_passports/${studentUser.phone}`, { teamName, buddy });
+        }
         
         showToast('💾 อัปเดตข้อมูลโปรไฟล์และบัดดี้เรียบร้อยครับ!');
         // Reload passports
@@ -1395,7 +1545,15 @@ function renderStudentBoards() {
     grid.innerHTML = ids.map(id => {
         const b = allStudentBoards[id];
         const sub = b.subject_type || b.subjectType || 'general';
-        const subName = sub === 'drawing' ? 'เขียนแบบเทคนิคเบื้องต้น' : (sub === 'safety' ? 'ความปลอดภัย' : 'ทั่วไป');
+        const isVoc2 = window.isVocational2Plus();
+        let subName = 'ทั่วไป';
+        if (sub === 'electrical') {
+            subName = 'Electrical Content Creator';
+        } else if (sub === 'drawing') {
+            subName = 'เขียนแบบเทคนิคเบื้องต้น';
+        } else if (sub === 'safety') {
+            subName = 'ความปลอดภัย';
+        }
         
         return `<div class="board-card" onclick="openBoardAssignments('${id}')">
             <div class="board-name">${b.name} <span class="board-subject-badge bsb-${sub}">${subName}</span></div>
@@ -1458,11 +1616,11 @@ window.openBoardAssignments = async function(boardId, forceData = null) {
                 }
                 
                 return `<div class="assignment-card" onclick="openSubmitWork(${index})">
-                    <div style="display:flex;justify-content:between;align-items:center;margin-bottom:8px">
-                        <strong style="color:var(--primary)">${a.name}</strong>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                        <strong style="color:var(--primary)">${escapeHtml(a.name)}</strong>
                         ${statusHtml}
                     </div>
-                    <div style="font-size:0.8rem;color:var(--text2)">${a.desc || 'ไม่มีรายละเอียดใบงาน'}</div>
+                    <div style="font-size:0.8rem;color:var(--text2)">${escapeHtml(a.desc) || 'ไม่มีรายละเอียดใบงาน'}</div>
                 </div>`;
             }).join('');
         }
@@ -1479,10 +1637,9 @@ window.closeBoardModal = function() {
 
 window.openSubmitWork = async function(asgnIndex, forceData = null) {
     activeAssignmentIndex = asgnIndex;
-    if (!forceData) {
-        postFilesBase64 = [];
-        postLargeFileLink = null;
-    }
+    // Always reset attachment state before re-populating from DB
+    postFilesBase64 = [];
+    postLargeFileLink = null;
     
     try {
         let b;
@@ -1549,8 +1706,8 @@ window.openSubmitWork = async function(asgnIndex, forceData = null) {
             
             existingHtml = `<div style="background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px;">
                 <div style="font-size:0.85rem;color:var(--primary);font-weight:600">งานที่ส่งแล้วของคุณ:</div>
-                <div style="font-size:0.85rem;margin-top:4px"><strong>หัวข้อ:</strong> ${studentPost.title}</div>
-                <div style="font-size:0.8rem;color:var(--text2)"><strong>ข้อความ:</strong> ${studentPost.desc || '-'}</div>
+                <div style="font-size:0.85rem;margin-top:4px"><strong>หัวข้อ:</strong> ${escapeHtml(studentPost.title)}</div>
+                <div style="font-size:0.8rem;color:var(--text2)"><strong>ข้อความ:</strong> ${escapeHtml(studentPost.desc) || '-'}</div>
                 ${fileHtml}
                 ${editActionHtml}
             </div>`;
@@ -1558,8 +1715,8 @@ window.openSubmitWork = async function(asgnIndex, forceData = null) {
         
         container.innerHTML = `
             <button class="btn btn-outline btn-sm" onclick="openBoardAssignments('${activeBoardId}')" style="margin-bottom:12px;width:auto"><i class="fas fa-arrow-left"></i> กลับ</button>
-            <h4 style="color:var(--primary);margin-bottom:6px">${a.name}</h4>
-            <p style="font-size:0.8rem;color:var(--text2);margin-bottom:14px">${a.desc || ''}</p>
+            <h4 style="color:var(--primary);margin-bottom:6px">${escapeHtml(a.name)}</h4>
+            <p style="font-size:0.8rem;color:var(--text2);margin-bottom:14px">${escapeHtml(a.desc) || ''}</p>
             
             ${existingHtml}
             
@@ -1586,7 +1743,7 @@ window.openSubmitWork = async function(asgnIndex, forceData = null) {
                     <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
                         <button class="btn-large-file" onclick="triggerPostCameraFile()"><i class="fas fa-camera"></i> ถ่ายรูปจากกล้อง</button>
                         <button class="btn-large-file" onclick="triggerPostFile()"><i class="fas fa-image"></i> เลือกรูปจากคลังภาพ</button>
-                        <button class="btn-large-file" onclick="promptLargeFile()"><i class="fas fa-link"></i> แนบลิงก์ Google Drive</button>
+                        <button class="btn-large-file" onclick="promptLargeFile()"><i class="fas fa-link"></i> แนบลิงก์วิดีโอ/ไฟล์ใหญ่ (Drive/YouTube)</button>
                         <input type="file" id="postFile" accept="image/*" style="display:none" onchange="onPostFileSelected(this)" multiple>
                         <input type="file" id="postCameraFile" accept="image/*" capture="environment" style="display:none" onchange="onPostFileSelected(this)">
                     </div>
@@ -1924,12 +2081,16 @@ window.submitPost = async function() {
 
 let currentDrawingPassportData = null;
 let currentSafetyPassportData = null;
+let currentElectricalPassportData = null;
 
 async function listenToPassports() {
     if (!studentUser) return;
     
-    // Fetch Drawing Passport from Supabase
-    let dpSnap = await get(`passports/${studentUser.phone}`);
+    const isVoc2 = window.isVocational2Plus();
+    const passportTable = isVoc2 ? 'electrical_passports' : 'passports';
+    
+    // Fetch Passport from Supabase
+    let dpSnap = await get(`${passportTable}/${studentUser.phone}`);
     if (!dpSnap.exists()) {
         const passportBase = {
             id: studentUser.phone,
@@ -1948,11 +2109,24 @@ async function listenToPassports() {
             date_joined: new Date().toISOString(),
             team_name: ''
         };
-        const { error } = await supabase.from('passports').upsert(passportBase, { onConflict: 'id' });
+        const { error } = await supabase.from(passportTable).upsert(passportBase, { onConflict: 'id' });
         if (!error) {
-            dpSnap = await get(`passports/${studentUser.phone}`);
+            dpSnap = await get(`${passportTable}/${studentUser.phone}`);
         }
     }
+    
+    if (isVoc2) {
+        if (dpSnap.exists()) {
+            currentElectricalPassportData = dpSnap.val();
+            currentDrawingPassportData = null;
+            updateDrawingPassportBooklet();
+            updateShopAssets();
+        }
+        currentSafetyPassportData = null;
+        return;
+    }
+    
+    currentElectricalPassportData = null;
     if (dpSnap.exists()) {
         currentDrawingPassportData = dpSnap.val();
         updateDrawingPassportBooklet();
@@ -2022,7 +2196,8 @@ const SAFETY_CHALLENGES = [
 ];
 
 async function updateDrawingPassportBooklet() {
-    const p = currentDrawingPassportData;
+    const isVoc2 = window.isVocational2Plus();
+    const p = isVoc2 ? currentElectricalPassportData : currentDrawingPassportData;
     if (!p) return;
     
     // Page 1 Cover
@@ -2066,7 +2241,7 @@ async function updateDrawingPassportBooklet() {
     const completedChals = Object.values(p.challenges || {}).filter(v => v === true).length;
     const stamps = Math.floor(points / 20) + completedChals;
     let rank = 'Trainee';
-    if (stamps >= 3 && stamps < 8) rank = '📐 Draftsman';
+    if (stamps >= 3 && stamps < 8) rank = isVoc2 ? '⚡ Creator' : '📐 Draftsman';
     else if (stamps >= 8 && stamps < 12) rank = 'Expert';
     else if (stamps >= 12) rank = '👑 Master';
     
@@ -2194,15 +2369,23 @@ async function updateSafetyPassportBooklet() {
 
 function renderBookletChart(type, history) {
     // Generate cumulative points list
-    let cumulative = 0;
+    // First, calculate cumulative up to the point before the last 5 entries
+    const olderEntries = history.slice(0, -5);
+    let baseAccum = 0;
+    olderEntries.forEach(h => {
+        if (h.type === 'plus') baseAccum += (h.amount || 0);
+        else if (h.type === 'minus') baseAccum = Math.max(0, baseAccum - (h.amount || 0));
+    });
+    
+    let cumulative = baseAccum;
     const labels = ['เริ่ม'];
-    const dataPoints = [0];
+    const dataPoints = [cumulative];
     
     // Take the last 5 updates
     const lastUpdates = history.slice(-5);
     lastUpdates.forEach((h, i) => {
-        if (h.type === 'plus') cumulative += h.amount;
-        else if (h.type === 'minus') cumulative = Math.max(0, cumulative - h.amount);
+        if (h.type === 'plus') cumulative += (h.amount || 0);
+        else if (h.type === 'minus') cumulative = Math.max(0, cumulative - (h.amount || 0));
         
         labels.push(`ครั้งที่ ${i+1}`);
         dataPoints.push(cumulative);
@@ -2266,18 +2449,28 @@ function renderBookletChart(type, history) {
 }
 
 window.navBooklet = function(type, direction) {
+    const isVoc2 = window.isVocational2Plus();
+    const maxPages = isVoc2 && type === 'dp' ? 3 : 4;
+    
     if (type === 'dp') {
         dpPageIndex += direction;
         if (dpPageIndex < 1) dpPageIndex = 1;
-        if (dpPageIndex > 4) dpPageIndex = 4;
+        if (dpPageIndex > maxPages) dpPageIndex = maxPages;
         
         document.getElementById('btn-dp-prev').disabled = dpPageIndex === 1;
-        document.getElementById('btn-dp-next').disabled = dpPageIndex === 4;
-        document.getElementById('dp-page-num').innerText = dpPageIndex + '/4';
+        document.getElementById('btn-dp-next').disabled = dpPageIndex === maxPages;
+        document.getElementById('dp-page-num').innerText = dpPageIndex + '/' + maxPages;
         
         // Toggle pages
-        for (let i = 1; i <= 4; i++) {
-            document.getElementById(`dp-p${i}`).classList.toggle('active', i === dpPageIndex);
+        if (isVoc2) {
+            document.getElementById('dp-p1').classList.toggle('active', dpPageIndex === 1);
+            document.getElementById('dp-p2').classList.toggle('active', dpPageIndex === 2);
+            document.getElementById('dp-p3').classList.remove('active'); // Hide challenges
+            document.getElementById('dp-p4').classList.toggle('active', dpPageIndex === 3); // Growth chart becomes page 3
+        } else {
+            for (let i = 1; i <= 4; i++) {
+                document.getElementById(`dp-p${i}`).classList.toggle('active', i === dpPageIndex);
+            }
         }
     } else {
         spPageIndex += direction;
@@ -2297,8 +2490,10 @@ window.navBooklet = function(type, direction) {
 
 window.switchPassportType = function(type) {
     currentActivePassportType = type;
-    document.querySelectorAll('.passport-subtab').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
+    document.querySelectorAll('.passport-subtab').forEach((btn, i) => {
+        btn.classList.remove('active');
+        if ((type === 'drawing' && i === 0) || (type === 'safety' && i === 1)) btn.classList.add('active');
+    });
     
     if (type === 'drawing') {
         document.getElementById('drawingPassportZone').style.display = 'block';
@@ -2319,8 +2514,9 @@ window.switchMainTab = function(tabName) {
 };
 
 function updateShopAssets() {
-    if (currentDrawingPassportData) {
-        const dp = currentDrawingPassportData;
+    const isVoc2 = window.isVocational2Plus();
+    const dp = isVoc2 ? currentElectricalPassportData : currentDrawingPassportData;
+    if (dp) {
         const pts = dp.points || 0;
         const completedChals = Object.values(dp.challenges || {}).filter(v => v === true).length;
         const stamps = Math.floor(pts / 20) + completedChals;
@@ -2354,7 +2550,18 @@ function updateShopAssets() {
 window.redeemReward = function(rewardType, rewardName, subjectType, pointsCost, stampsCost) {
     if (!studentUser) return;
     
-    const subText = subjectType === 'drawing' ? 'เขียนแบบเทคนิคเบื้องต้น' : 'ความปลอดภัยในสถานศึกษา';
+    const isVoc2 = window.isVocational2Plus();
+    if (isVoc2 && subjectType === 'drawing') {
+        subjectType = 'electrical';
+    }
+    
+    let subText = 'ความปลอดภัยในสถานศึกษา';
+    if (subjectType === 'electrical') {
+        subText = 'Electrical Content Creator';
+    } else if (subjectType === 'drawing') {
+        subText = 'เขียนแบบเทคนิคเบื้องต้น';
+    }
+    
     const costText = pointsCost > 0 ? `${pointsCost} แต้ม` : `${stampsCost} ตราประทับ`;
     
     document.getElementById('shopConfirmText').innerText = `คุณแน่ใจใช่หรือไม่ว่าต้องการแลกสิทธิ์\n"${rewardName}"\nโดยใช้ ${costText} จากวิชา ${subText}?`;
@@ -2381,9 +2588,24 @@ window.closeShopConfirmModal = function() {
 };
 
 async function executeRedeem(rewardType, rewardName, subjectType, pointsCost, stampsCost) {
-    const subText = subjectType === 'drawing' ? 'เขียนแบบเทคนิคเบื้องต้น' : 'ความปลอดภัยในสถานศึกษา';
+    const isVoc2 = window.isVocational2Plus();
+    if (isVoc2 && subjectType === 'drawing') {
+        subjectType = 'electrical';
+    }
+    
+    let subText = 'ความปลอดภัยในสถานศึกษา';
+    let passportRefPath = '';
+    if (subjectType === 'electrical') {
+        subText = 'Electrical Content Creator';
+        passportRefPath = `electrical_passports/${studentUser.phone}`;
+    } else if (subjectType === 'drawing') {
+        subText = 'เขียนแบบเทคนิคเบื้องต้น';
+        passportRefPath = `passports/${studentUser.phone}`;
+    } else {
+        passportRefPath = `safety_passports/${studentUser.phone}`;
+    }
+    
     try {
-        const passportRefPath = subjectType === 'drawing' ? `passports/${studentUser.phone}` : `safety_passports/${studentUser.phone}`;
         const snap = await get(passportRefPath);
         if (!snap.exists()) {
             showToast('ไม่พบข้อมูลพาสปอร์ตของคุณในระบบ', false);
@@ -2476,7 +2698,12 @@ async function listenToStudentRedemptions() {
         }
         zone.style.display = 'block';
         list.innerHTML = active.map(r => {
-            const subText = r.subject_type === 'drawing' ? 'เขียนแบบเทคนิคเบื้องต้น' : 'ความปลอดภัยในสถานศึกษา';
+            let subText = 'ความปลอดภัยในสถานศึกษา';
+            if (r.subject_type === 'electrical') {
+                subText = 'Electrical Content Creator';
+            } else if (r.subject_type === 'drawing') {
+                subText = 'เขียนแบบเทคนิคเบื้องต้น';
+            }
             return `
                 <div style="background:rgba(251,191,36,0.08); border:1px dashed var(--gold); border-radius:12px; padding:16px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
                     <div>
@@ -2517,7 +2744,8 @@ async function updateStudentHistoryUI(preloadedRedeems = null) {
             listItems.push({
                 type: 'redemption',
                 title: r.reward_name || r.rewardName,
-                subject: (r.subject_type || r.subjectType) === 'drawing' ? 'เขียนแบบฯ' : 'ความปลอดภัยฯ',
+                subject: (r.subject_type || r.subjectType) === 'electrical' ? 'Electrical Creator' :
+                         (((r.subject_type || r.subjectType) === 'drawing') ? 'เขียนแบบฯ' : 'ความปลอดภัยฯ'),
                 cost: (r.cost_points || r.costPoints || 0) > 0
                     ? `-${r.cost_points || r.costPoints} แต้ม`
                     : `-${r.cost_stamps || r.costStamps} ดวง`,
@@ -2530,40 +2758,61 @@ async function updateStudentHistoryUI(preloadedRedeems = null) {
         let historyClearedAt = 0;
         
         // 2. Use cached passport data if available, else fetch
-        const dpData = currentDrawingPassportData || (await get(`passports/${studentUser.phone}`)).val();
-        if (dpData) {
-            if (dpData.historyClearedAt && dpData.historyClearedAt > historyClearedAt)
-                historyClearedAt = dpData.historyClearedAt;
-            const hist = Array.isArray(dpData.history) ? dpData.history
-                : (typeof dpData.history === 'string' ? tryParseJSON(dpData.history) : []);
-            (hist || []).forEach(item => {
-                listItems.push({
-                    type: 'adjustment',
-                    title: item.reason || 'ปรับแต้มสะสม',
-                    subject: 'เขียนแบบฯ',
-                    cost: item.type === 'plus' ? `+${item.amount} แต้ม` : `-${item.amount} แต้ม`,
-                    status: 'approved',
-                    timestamp: item.timestamp || Date.now()
+        const isVoc2 = window.isVocational2Plus();
+        if (isVoc2) {
+            const epData = currentElectricalPassportData || (await get(`electrical_passports/${studentUser.phone}`)).val();
+            if (epData) {
+                if (epData.historyClearedAt && epData.historyClearedAt > historyClearedAt)
+                    historyClearedAt = epData.historyClearedAt;
+                const hist = Array.isArray(epData.history) ? epData.history
+                    : (typeof epData.history === 'string' ? tryParseJSON(epData.history) : []);
+                (hist || []).forEach(item => {
+                    listItems.push({
+                        type: 'adjustment',
+                        title: item.reason || 'ปรับแต้มสะสม',
+                        subject: 'Electrical Creator',
+                        cost: item.type === 'plus' ? `+${item.amount} แต้ม` : `-${item.amount} แต้ม`,
+                        status: 'approved',
+                        timestamp: item.timestamp || Date.now()
+                    });
                 });
-            });
-        }
-        
-        const spData = currentSafetyPassportData || (await get(`safety_passports/${studentUser.phone}`)).val();
-        if (spData) {
-            if (spData.historyClearedAt && spData.historyClearedAt > historyClearedAt)
-                historyClearedAt = spData.historyClearedAt;
-            const hist = Array.isArray(spData.history) ? spData.history
-                : (typeof spData.history === 'string' ? tryParseJSON(spData.history) : []);
-            (hist || []).forEach(item => {
-                listItems.push({
-                    type: 'adjustment',
-                    title: item.reason || 'ปรับแต้มสะสม',
-                    subject: 'ความปลอดภัยฯ',
-                    cost: item.type === 'plus' ? `+${item.amount} แต้ม` : `-${item.amount} แต้ม`,
-                    status: 'approved',
-                    timestamp: item.timestamp || Date.now()
+            }
+        } else {
+            const dpData = currentDrawingPassportData || (await get(`passports/${studentUser.phone}`)).val();
+            if (dpData) {
+                if (dpData.historyClearedAt && dpData.historyClearedAt > historyClearedAt)
+                    historyClearedAt = dpData.historyClearedAt;
+                const hist = Array.isArray(dpData.history) ? dpData.history
+                    : (typeof dpData.history === 'string' ? tryParseJSON(dpData.history) : []);
+                (hist || []).forEach(item => {
+                    listItems.push({
+                        type: 'adjustment',
+                        title: item.reason || 'ปรับแต้มสะสม',
+                        subject: 'เขียนแบบฯ',
+                        cost: item.type === 'plus' ? `+${item.amount} แต้ม` : `-${item.amount} แต้ม`,
+                        status: 'approved',
+                        timestamp: item.timestamp || Date.now()
+                    });
                 });
-            });
+            }
+            
+            const spData = currentSafetyPassportData || (await get(`safety_passports/${studentUser.phone}`)).val();
+            if (spData) {
+                if (spData.historyClearedAt && spData.historyClearedAt > historyClearedAt)
+                    historyClearedAt = spData.historyClearedAt;
+                const hist = Array.isArray(spData.history) ? spData.history
+                    : (typeof spData.history === 'string' ? tryParseJSON(spData.history) : []);
+                (hist || []).forEach(item => {
+                    listItems.push({
+                        type: 'adjustment',
+                        title: item.reason || 'ปรับแต้มสะสม',
+                        subject: 'ความปลอดภัยฯ',
+                        cost: item.type === 'plus' ? `+${item.amount} แต้ม` : `-${item.amount} แต้ม`,
+                        status: 'approved',
+                        timestamp: item.timestamp || Date.now()
+                    });
+                });
+            }
         }
         
         // Filter out items cleared by student
@@ -2652,12 +2901,18 @@ window.clearStudentHistory = function() {
     askStudentConfirm("ล้างประวัติของคุณ?", "คุณมั่นใจใช่หรือไม่ว่าต้องการล้างประวัติการทำรายการของคุณในหน้านี้?\n(หมายเหตุ: คะแนนสะสม ตราประทับ และกราฟความก้าวหน้าของคุณจะไม่ได้รับผลกระทบใดๆ และครูจะยังเห็นบันทึกเพื่อตรวจสอบงานได้ตามปกติ)", async () => {
         try {
             const now = Date.now();
-            await update(`passports/${studentUser.phone}`, {
-                historyClearedAt: now
-            });
-            await update(`safety_passports/${studentUser.phone}`, {
-                historyClearedAt: now
-            });
+            if (window.isVocational2Plus()) {
+                await update(`electrical_passports/${studentUser.phone}`, {
+                    historyClearedAt: now
+                });
+            } else {
+                await update(`passports/${studentUser.phone}`, {
+                    historyClearedAt: now
+                });
+                await update(`safety_passports/${studentUser.phone}`, {
+                    historyClearedAt: now
+                });
+            }
             
             showToast("🧹 ล้างประวัติการทำรายการของคุณเรียบร้อยครับ!");
             updateStudentHistoryUI();

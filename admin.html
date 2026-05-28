@@ -90,6 +90,7 @@ body{font-family:'IBM Plex Sans Thai','Prompt',sans-serif;background:#0a0f1e;col
 .subject-badge{font-size:.7rem;padding:2px 6px;border-radius:4px;font-weight:600;margin-left:8px;display:inline-block}
 .sub-drawing{background:rgba(99,102,241,0.2);color:#818cf8;border:1px solid rgba(99,102,241,0.3)}
 .sub-safety{background:rgba(20,184,166,0.2);color:#2dd4bf;border:1px solid rgba(20,184,166,0.3)}
+.sub-electrical{background:rgba(245,158,11,0.2);color:#fbbf24;border:1px solid rgba(245,158,11,0.3)}
 .sub-general{background:rgba(255,255,255,0.06);color:var(--text2);border:1px solid rgba(255,255,255,0.1)}
 .flex-between{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
 .post-attachment{margin-top:10px;background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:8px}
@@ -409,8 +410,9 @@ body{font-family:'IBM Plex Sans Thai','Prompt',sans-serif;background:#0a0f1e;col
             <label>ประเภทวิชา (เชื่อมโยงกับพาสปอร์ต)</label>
             <select class="input" id="boardSubjectType">
                 <option value="general">📋 บอร์ดส่งงานทั่วไป (ไม่มีคะแนนพาสปอร์ต)</option>
-                <option value="drawing">📐 วิชาเขียนแบบเทคนิคเบื้องต้น (สะสม Drawing Passport)</option>
-                <option value="safety">🛡️ วิชาความปลอดภัยในสถานศึกษา (สะสม Safety Passport)</option>
+                <option value="drawing">📐 Drawing Passport (ปวช.1)</option>
+                <option value="safety">🛡️ Safety Passport (ปวช.1)</option>
+                <option value="electrical">⚡ Electrical Content Creator Passport (ปวช.2+)</option>
             </select>
         </div>
         <div class="form-group" id="templateSelectionGroup">
@@ -718,6 +720,9 @@ function setupRealtime() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'safety_passports' }, () => {
             lastSafetyPassportsFetchTime = 0;
         })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'electrical_passports' }, () => {
+            lastElectricalPassportsFetchTime = 0;
+        })
         .subscribe();
 }
 
@@ -730,8 +735,10 @@ let allAdmins = {};
 // Cache for massive passports database reads
 let cachedPassports = null;
 let cachedSafetyPassports = null;
+let cachedElectricalPassports = null;
 let lastPassportsFetchTime = 0;
 let lastSafetyPassportsFetchTime = 0;
+let lastElectricalPassportsFetchTime = 0;
 const CACHE_LIFETIME_MS = 30000;
 
 function showToast(msg, icon='fas fa-check-circle'){ 
@@ -897,7 +904,24 @@ window.renderBoards = () => {
     grid.innerHTML = list.map(b => {
         const canEdit = b.createdBy === currentUser;
         const sub = b.subjectType || 'general';
-        const subName = sub === 'drawing' ? '📐 เขียนแบบเทคนิคเบื้องต้น' : (sub === 'safety' ? '🛡️ ความปลอดภัย' : '📋 ทั่วไป');
+        
+        let isVoc2Board = false;
+        let clsList = b.classrooms;
+        if (typeof clsList === 'string') {
+            try { clsList = JSON.parse(clsList); } catch { clsList = []; }
+        }
+        if (clsList && Array.isArray(clsList)) {
+            isVoc2Board = clsList.some(c => c.name && c.name.trim().startsWith('ปวช.') && !c.name.trim().startsWith('ปวช.1'));
+        }
+        
+        let subName = '📋 ทั่วไป';
+        if (sub === 'electrical') {
+            subName = '⚡ Electrical Content Creator';
+        } else if (sub === 'drawing') {
+            subName = '📐 เขียนแบบเทคนิคเบื้องต้น';
+        } else if (sub === 'safety') {
+            subName = '🛡️ ความปลอดภัย';
+        }
         const ownerBadge = b.createdBy && currentUser === 'admin' ? `<span style="font-size:0.7rem;color:var(--text2);display:block;margin-top:4px;">เจ้าของ: ${b.createdBy}</span>` : '';
         const borderStyle = canEdit ? '' : 'border: 1px solid #fbbf24; box-shadow: 0 0 10px rgba(251,191,36,0.1);';
         
@@ -1188,6 +1212,7 @@ window.renderReviewPosts = () => {
 window.toggleGrade = async (pi, status) => {
     cachedPassports = null;
     cachedSafetyPassports = null;
+    cachedElectricalPassports = null;
     const post = activeEditorBoardData.classrooms[activeClassroomIndex].assignments[activeReviewAssignmentIndex].posts[pi];
     
     // Double grading prevention guard
@@ -1215,7 +1240,7 @@ window.toggleGrade = async (pi, status) => {
     if (activeEditorBoardData.subjectType && activeEditorBoardData.subjectType !== 'general' && post.studentPhone) {
         const phone = post.studentPhone;
         const subject = activeEditorBoardData.subjectType;
-        const passportTable = subject === 'drawing' ? 'passports' : 'safety_passports';
+        const passportTable = subject === 'electrical' ? 'electrical_passports' : (subject === 'drawing' ? 'passports' : 'safety_passports');
         
         try {
             let { data: rawData } = await supabase.from(passportTable).select('*').eq('phone', phone).maybeSingle();
@@ -1564,7 +1589,13 @@ async function listenToRedemptions() {
         
         if (tbody) {
             tbody.innerHTML = list.map(r => {
-                const subName = r.subjectType === 'drawing' ? 'เขียนแบบเทคนิคเบื้องต้น' : 'ความปลอดภัยในสถานศึกษา';
+                const isVoc2 = r.studentClassroom && r.studentClassroom.trim().startsWith('ปวช.') && !r.studentClassroom.trim().startsWith('ปวช.1');
+                let subName = 'ความปลอดภัยในสถานศึกษา';
+                if (r.subjectType === 'electrical') {
+                    subName = 'Electrical Content Creator';
+                } else if (r.subjectType === 'drawing') {
+                    subName = 'เขียนแบบเทคนิคเบื้องต้น';
+                }
                 const costText = r.costPoints > 0 ? `<span style="color:var(--primary-light)">${r.costPoints} แต้ม</span>` : `<span style="color:#ef4444">${r.costStamps} ตราประทับ</span>`;
                 const dateStr = new Date(r.timestamp).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
                 
@@ -1624,6 +1655,7 @@ window.approveRedemption = function(redeemId) {
 window.rejectRedemption = function(redeemId) {
     cachedPassports = null;
     cachedSafetyPassports = null;
+    cachedElectricalPassports = null;
     askConfirm("ยืนยันการปฏิเสธ", "คุณแน่ใจใช่หรือไม่ว่าต้องการปฏิเสธคำขอนี้? แต้มหรือสิทธิ์สะสมจะถูกโอนกลับคืนให้นักเรียนโดยอัตโนมัติ", async () => {
         try {
             const { data: snapData, error: snapErr } = await supabase.from('redemptions').select('*').eq('id', redeemId).maybeSingle();
@@ -1633,7 +1665,7 @@ window.rejectRedemption = function(redeemId) {
             }
             
             const r = parseRedemptionData(snapData);
-            const passportTable = r.subjectType === 'drawing' ? 'passports' : 'safety_passports';
+            const passportTable = r.subjectType === 'electrical' ? 'electrical_passports' : (r.subjectType === 'drawing' ? 'passports' : 'safety_passports');
             
             let { data: rawPassData } = await supabase.from(passportTable).select('*').eq('phone', r.studentPhone).maybeSingle();
             if (rawPassData) {
@@ -1675,6 +1707,7 @@ window.rejectRedemption = function(redeemId) {
 window.onAdjustmentClassroomChange = async function() {
     const room = document.getElementById('adjClassroom').value;
     const studentSelect = document.getElementById('adjStudent');
+    const subjectSelect = document.getElementById('adjSubject');
     studentSelect.innerHTML = '<option value="">-- กำลังโหลดข้อมูล... --</option>';
     
     if (!room) {
@@ -1682,12 +1715,26 @@ window.onAdjustmentClassroomChange = async function() {
         return;
     }
     
+    // Adjust subject select options for ปวช.2+
+    const isVoc2 = room.startsWith('ปวช.') && !room.startsWith('ปวช.1');
+    if (subjectSelect) {
+        if (isVoc2) {
+            subjectSelect.innerHTML = '<option value="electrical">⚡ Electrical Content Creator</option>';
+        } else {
+            subjectSelect.innerHTML = `
+                <option value="drawing">📐 วิชาเขียนแบบเทคนิคเบื้องต้น (Drawing)</option>
+                <option value="safety">🛡️ วิชาความปลอดภัยในสถานศึกษา (Safety)</option>
+            `;
+        }
+    }
+    
     try {
         const { data: snapData } = await supabase.from('students_master').select('phone, first_name, last_name').eq('classroom', room).order('first_name');
         if (snapData && snapData.length > 0) {
             const phones = snapData.map(s => s.phone);
             
-            const { data: pData } = await supabase.from('passports').select('phone, team_name').in('phone', phones);
+            const passportTable = isVoc2 ? 'electrical_passports' : 'passports';
+            const { data: pData } = await supabase.from(passportTable).select('phone, team_name').in('phone', phones);
             const teams = new Set();
             if (pData) {
                 pData.forEach(p => {
@@ -1719,6 +1766,7 @@ window.onAdjustmentClassroomChange = async function() {
 window.adjustPointsIndividual = function() {
     cachedPassports = null;
     cachedSafetyPassports = null;
+    cachedElectricalPassports = null;
     const room = document.getElementById('adjClassroom').value;
     const targetValue = document.getElementById('adjStudent').value;
     const subject = document.getElementById('adjSubject').value;
@@ -1739,7 +1787,12 @@ window.adjustPointsIndividual = function() {
         return;
     }
     
-    const subjectText = subject === 'drawing' ? 'เขียนแบบเทคนิคเบื้องต้น' : 'ความปลอดภัยในสถานศึกษา';
+    let subjectText = 'ความปลอดภัยในสถานศึกษา';
+    if (subject === 'electrical') {
+        subjectText = 'Electrical Content Creator';
+    } else if (subject === 'drawing') {
+        subjectText = 'เขียนแบบเทคนิคเบื้องต้น';
+    }
     const actionText = type === 'plus' ? 'เพิ่ม' : 'ลด';
     let targetText = "นักเรียนคนนี้";
     if (targetValue === 'ALL_CLASS') targetText = `นักเรียนทุกคนในห้อง ${room}`;
@@ -1747,7 +1800,7 @@ window.adjustPointsIndividual = function() {
     
     askConfirm("ยืนยันการปรับคะแนน", `คุณแน่ใจใช่หรือไม่ว่าต้องการ${actionText}คะแนน จำนวน ${pointsVal} แต้ม\nของวิชา ${subjectText}\nสำหรับ${targetText}?`, async () => {
         try {
-            const passportTable = subject === 'drawing' ? 'passports' : 'safety_passports';
+            const passportTable = subject === 'electrical' ? 'electrical_passports' : (subject === 'drawing' ? 'passports' : 'safety_passports');
             let targetPhones = [];
             
             showToast(`กำลังเตรียมข้อมูล...`, 'fas fa-spinner fa-spin');
@@ -1780,7 +1833,7 @@ window.adjustPointsIndividual = function() {
                 let { data: rawP } = await supabase.from(passportTable).select('*').eq('phone', phone).maybeSingle();
                 if (!rawP) return;
                 
-                const p = parsePassportData(passportTable, rawP);
+                const p = parsePassportData(rawP);
                 const currentPoints = p.points || 0;
                 let newPoints = currentPoints;
                 if (type === 'plus') newPoints = currentPoints + pointsVal;
@@ -1835,7 +1888,7 @@ async function updateTeacherHistoryUI() {
                     studentName: r.studentName || 'นักเรียน',
                     classroom: r.studentClassroom || 'ไม่ระบุ',
                     title: `แลกของรางวัล: ${r.rewardName}`,
-                    subject: r.subjectType === 'drawing' ? 'เขียนแบบฯ' : 'ความปลอดภัยฯ',
+                    subject: r.subjectType === 'electrical' ? 'Electrical Creator' : (r.subjectType === 'drawing' ? 'เขียนแบบฯ' : 'ความปลอดภัยฯ'),
                     cost: r.costPoints > 0 ? `-${r.costPoints} แต้ม` : `-${r.costStamps} ดวง`,
                     status: r.status,
                     timestamp: r.timestamp || Date.now()
@@ -1863,7 +1916,7 @@ async function updateTeacherHistoryUI() {
                         listItems.push({
                             type: 'adjustment',
                             studentName: p.firstName ? `${p.firstName} ${p.lastName || ''}` : `เบอร์ ${phone}`,
-                            classroom: p.classroom || 'ไม่ระบุ',
+                            classroom: p.className || p.classroom || 'ไม่ระบุ',
                             title: item.reason || 'ปรับแต้มสะสม',
                             subject: 'เขียนแบบฯ',
                             cost: item.type === 'plus' ? `+${item.amount} แต้ม` : `-${item.amount} แต้ม`,
@@ -1896,6 +1949,36 @@ async function updateTeacherHistoryUI() {
                             classroom: p.classroom || 'ไม่ระบุ',
                             title: item.reason || 'ปรับแต้มสะสม',
                             subject: 'ความปลอดภัยฯ',
+                            cost: item.type === 'plus' ? `+${item.amount} แต้ม` : `-${item.amount} แต้ม`,
+                            status: 'approved',
+                            timestamp: item.timestamp || Date.now()
+                        });
+                    });
+                }
+            });
+        }
+        
+        // 4. Fetch passport adjustments (electrical) using TTL cache
+        if (!cachedElectricalPassports || now - lastElectricalPassportsFetchTime > CACHE_LIFETIME_MS) {
+            const { data: epList } = await supabase.from('electrical_passports').select('*');
+            cachedElectricalPassports = epList ? Object.fromEntries(epList.map(p => {
+                const parsed = parsePassportData(p);
+                return [parsed.phone, parsed];
+            })) : {};
+            lastElectricalPassportsFetchTime = now;
+        }
+        
+        if (cachedElectricalPassports) {
+            const epData = cachedElectricalPassports;
+            Object.entries(epData).forEach(([phone, p]) => {
+                if (p.history && Array.isArray(p.history)) {
+                    p.history.forEach(item => {
+                        listItems.push({
+                            type: 'adjustment',
+                            studentName: p.firstName ? `${p.firstName} ${p.lastName || ''}` : `เบอร์ ${phone}`,
+                            classroom: p.className || p.classroom || 'ไม่ระบุ',
+                            title: item.reason || 'ปรับแต้มสะสม',
+                            subject: 'Electrical Creator',
                             cost: item.type === 'plus' ? `+${item.amount} แต้ม` : `-${item.amount} แต้ม`,
                             status: 'approved',
                             timestamp: item.timestamp || Date.now()
@@ -2175,10 +2258,11 @@ window.scanDuplicateScores = async () => {
     resultsDiv.innerHTML = `<div style="text-align:center; padding:30px; color:var(--primary-light);"><i class="fas fa-spinner fa-spin" style="font-size:2rem; margin-bottom:12px;"></i><br>กำลังตรวจสอบประวัติและสแกนแต้มซ้ำซ้อน...</div>`;
     
     try {
-        const [{ data: usersList }, { data: drawingList }, { data: safetyList }] = await Promise.all([
+        const [{ data: usersList }, { data: drawingList }, { data: safetyList }, { data: electricalList }] = await Promise.all([
             supabase.from('students_master').select('*'),
             supabase.from('passports').select('*'),
-            supabase.from('safety_passports').select('*')
+            supabase.from('safety_passports').select('*'),
+            supabase.from('electrical_passports').select('*')
         ]);
         
         if (!usersList || usersList.length === 0) {
@@ -2192,6 +2276,10 @@ window.scanDuplicateScores = async () => {
             return [parsed.phone, parsed];
         })) : {};
         const safety = safetyList ? Object.fromEntries(safetyList.map(p => {
+            const parsed = parsePassportData(p);
+            return [parsed.phone, parsed];
+        })) : {};
+        const electrical = electricalList ? Object.fromEntries(electricalList.map(p => {
             const parsed = parsePassportData(p);
             return [parsed.phone, parsed];
         })) : {};
@@ -2229,7 +2317,7 @@ window.scanDuplicateScores = async () => {
                         }
                         
                         duplicateFoundList.push({
-                            studentName: u.name,
+                            studentName: (u.first_name + ' ' + (u.last_name || '')).trim() || u.name || 'ไม่ทราบชื่อ',
                             studentPhone: phone,
                             classroom: u.classroom,
                             subjectType: 'drawing',
@@ -2266,11 +2354,48 @@ window.scanDuplicateScores = async () => {
                         }
                         
                         duplicateFoundList.push({
-                            studentName: u.name,
+                            studentName: (u.first_name + ' ' + (u.last_name || '')).trim() || u.name || 'ไม่ทราบชื่อ',
                             studentPhone: phone,
                             classroom: u.classroom,
                             subjectType: 'safety',
                             subjectName: 'ความปลอดภัยฯ',
+                            reason: reason,
+                            count: indices.length,
+                            excessPoints: excessPoints,
+                            indices: indices
+                        });
+                    }
+                });
+            }
+
+            // Check electrical passport
+            if (electrical[phone]) {
+                const ep = electrical[phone];
+                const history = ep.history || [];
+                const reasonCounts = {};
+                
+                history.forEach((h, idx) => {
+                    if (h && h.reason) {
+                        if (!reasonCounts[h.reason]) reasonCounts[h.reason] = [];
+                        reasonCounts[h.reason].push(idx);
+                    }
+                });
+                
+                Object.keys(reasonCounts).forEach(reason => {
+                    const indices = reasonCounts[reason];
+                    if (indices.length > 1) {
+                        let excessPoints = 0;
+                        for (let i = 1; i < indices.length; i++) {
+                            const item = history[indices[i]];
+                            excessPoints += (item.amount !== undefined ? item.amount : 10);
+                        }
+                        
+                        duplicateFoundList.push({
+                            studentName: (u.first_name + ' ' + (u.last_name || '')).trim() || u.name || 'ไม่ทราบชื่อ',
+                            studentPhone: phone,
+                            classroom: u.classroom,
+                            subjectType: 'electrical',
+                            subjectName: 'Electrical Creator',
                             reason: reason,
                             count: indices.length,
                             excessPoints: excessPoints,
@@ -2357,7 +2482,7 @@ window.fixSingleDuplicate = async (index) => {
     
     askConfirm("ยืนยันการดึงคะแนนคืน", `ระบบจะหักคะแนนสะสมที่เกินมา ${dup.excessPoints} แต้ม และล้างบันทึกประวัติซ้ำของ "${dup.studentName}" ในวิชา ${dup.subjectName} ยืนยันการดำเนินการ?`, async () => {
         try {
-            const passportTable2 = dup.subjectType === 'drawing' ? 'passports' : 'safety_passports';
+            const passportTable2 = dup.subjectType === 'electrical' ? 'electrical_passports' : (dup.subjectType === 'drawing' ? 'passports' : 'safety_passports');
             let { data: rawP, error: pErr2 } = await supabase.from(passportTable2).select('*').eq('phone', dup.studentPhone).maybeSingle();
             if (!rawP) {
                 showToast("ไม่พบพาสปอร์ตของนักเรียนรายนี้", "fas fa-times-circle");
@@ -2417,7 +2542,7 @@ window.fixAllDuplicates = async () => {
         
         for (const dup of window.currentDuplicateScanData) {
             try {
-                const passportTableLoop = dup.subjectType === 'drawing' ? 'passports' : 'safety_passports';
+                const passportTableLoop = dup.subjectType === 'electrical' ? 'electrical_passports' : (dup.subjectType === 'drawing' ? 'passports' : 'safety_passports');
                 let { data: rawP } = await supabase.from(passportTableLoop).select('*').eq('phone', dup.studentPhone).maybeSingle();
                 if (rawP) {
                     const p = parsePassportData(rawP);

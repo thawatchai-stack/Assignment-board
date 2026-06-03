@@ -503,7 +503,7 @@ body{font-family:'IBM Plex Sans Thai','Prompt',sans-serif;background:#0a0f1e;col
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
 const SUPABASE_URL = "https://vdceebtdfiysopihxcgr.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZkY2VlYnRkZml5c29waWh4Y2dyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTI3NjY2NSwiZXhwIjoyMDk0ODUyNjY1fQ.x-FymMjqNDFUf3f6ZmGNJC0jMIVDQKNEMB3vqsRrhW8";
+const SUPABASE_KEY = "sb_publishable_mKWw9FNiiZN-V9kU7FUDvA_IFvGpFLu";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 let isReady = true; // Supabase client ready
@@ -816,41 +816,37 @@ window.handleLogin = async () => {
   const username = document.getElementById('loginUser').value.trim();
   const password = document.getElementById('loginPass').value.trim();
   if (!username || !password) {
-      showBanner('<i class="fas fa-exclamation-circle"></i> กรุณากรอก Username และ Password', 'error');
+      showBanner('<i class="fas fa-exclamation-circle"></i> กรุณากรอก Email (หรือ Username) และ Password', 'error');
       return;
   }
 
-  // Step 1: Check if username exists
-  const { data: userRow, error: userErr } = await supabase
-    .from('admin_users')
-    .select('username, pass')
-    .eq('username', username)
-    .maybeSingle();
+  // Use real Supabase Auth
+  let email = username.includes('@') ? username : username + '@admin.classboard.com';
 
-  if (userErr || !userRow) {
-    showBanner('<i class="fas fa-times-circle"></i> Username ไม่ถูกต้อง', 'error');
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: email,
+    password: password
+  });
+
+  if (error) {
+    showBanner('<i class="fas fa-times-circle"></i> ข้อมูลไม่ถูกต้อง หรือยังไม่ได้สร้างบัญชีในหน้า Auth', 'error');
     return;
   }
 
-  // Step 2: Check if password matches
-  if (userRow.pass !== password) {
-    showBanner('<i class="fas fa-times-circle"></i> Password ไม่ถูกต้อง', 'error');
-    return;
-  }
-
-  loginSuccess(username);
+  loginSuccess(data.user.email);
 };
 
 function loginSuccess(user) {
-    showBanner('<i class="fas fa-check-circle"></i> เข้าสู่ระบบสำเร็จ! ยินดีต้อนรับ ' + user, 'success');
-    currentUser = user;
+    const displayName = user.split('@')[0];
+    showBanner('<i class="fas fa-check-circle"></i> เข้าสู่ระบบสำเร็จ! ยินดีต้อนรับ ' + displayName, 'success');
+    currentUser = displayName;
     document.getElementById('loginPage').style.display = 'none';
     document.getElementById('adminApp').style.display = 'flex';
     if(window.innerWidth <= 768) document.getElementById('sidebar').classList.add('collapsed');
     initDashboard();
 }
 
-window.logout = () => location.reload();
+window.logout = async () => { await supabase.auth.signOut(); location.reload(); };
 window.toggleSidebar = () => document.getElementById('sidebar').classList.toggle('collapsed');
 
 // initDashboard() defined above using Supabase
@@ -1295,6 +1291,10 @@ window.toggleGrade = async (pi, status) => {
     await saveEditor(); 
     renderReviewPosts(); 
     renderEditor();
+    if (reviewCurrentBoardId) {
+        renderReviewBoardDetail();
+        if (typeof updateGlobalPendingBadge === 'function') updateGlobalPendingBadge();
+    }
     if (status) {
         closeModal('modalReviewPosts');
     }
@@ -1314,6 +1314,10 @@ window.delPost = (pi) => {
             await saveEditor(); 
             renderReviewPosts(); 
             renderEditor();
+            if (reviewCurrentBoardId) {
+                renderReviewBoardDetail();
+                if (typeof updateGlobalPendingBadge === 'function') updateGlobalPendingBadge();
+            }
             showToast("🗑️ ลบงานส่งและดึงคะแนนคืนเรียบร้อยครับ!");
             closeModal('modalReviewPosts');
         } catch(e) {
@@ -1350,14 +1354,21 @@ window.loadReviewBoards = async () => {
         globalPending += getPendingCount(reviewBoardsData[b.id]);
     });
     
+    updateGlobalPendingBadge();
+    renderReviewBoardList();
+};
+
+function updateGlobalPendingBadge() {
+    let globalPending = 0;
+    Object.values(reviewBoardsData).forEach(b => {
+        globalPending += getPendingCount(b);
+    });
     const badge = document.getElementById('globalPendingBadge');
     if (badge) {
         badge.innerText = globalPending;
         badge.style.display = globalPending > 0 ? 'block' : 'none';
     }
-    renderReviewBoardList();
-};
-
+}
 function getPendingCount(bd) {
     let count = 0;
     if (bd.classrooms) {
@@ -2595,7 +2606,7 @@ window.fixAllDuplicates = async () => {
 };
 
 // ── Login form event listeners (module scope fix) ──────────────
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
     const loginHandler = () => window.handleLogin && window.handleLogin();
     const btnLogin = document.getElementById('btnLogin');
     if (btnLogin) btnLogin.addEventListener('click', loginHandler);
@@ -2603,6 +2614,12 @@ window.addEventListener('load', () => {
     if (loginUser) loginUser.addEventListener('keypress', e => { if(e.key==='Enter') loginHandler(); });
     const loginPass = document.getElementById('loginPass');
     if (loginPass) loginPass.addEventListener('keypress', e => { if(e.key==='Enter') loginHandler(); });
+
+    // Check existing session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session && session.user) {
+        loginSuccess(session.user.email);
+    }
 });
 </script>
 </body>
